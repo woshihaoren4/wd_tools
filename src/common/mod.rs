@@ -1,6 +1,6 @@
-#[cfg(feature = "base64")]
+#[cfg(feature = "b64")]
 mod base64;
-#[cfg(feature = "base64")]
+#[cfg(feature = "b64")]
 pub use self::base64::{Base64URLEncode, Base64URLDecode, Base64StdDecode, Base64StdEncode};
 
 #[cfg(feature = "md5")]
