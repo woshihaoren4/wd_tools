@@ -1,4 +1,8 @@
 mod common;
+
+#[cfg(feature = "ptr")]
+pub mod ptr;
+
 pub use common::*;
 
 #[cfg(test)]
@@ -43,5 +47,15 @@ mod test{
         assert_eq!(data.to_box(),Box::new(10),"test_pf box");
         assert_eq!(data.arc(),Arc::new(10),"test_pf arc");
         assert_eq!(data.some(),Some(10),"test_pf option");
+    }
+
+    #[test]
+    fn test_ptr(){
+        let src = 129u8;
+        let des = ptr::force_arc_to_var::<_,i8>(Arc::new(src));
+        assert_eq!(des,-127,"force_arc_to_var failed");
+        let des = ptr::force_box_to_var::<_,i8>(src.to_box());
+        assert_eq!(des,-127,"force_box_to_var failed");
+
     }
 }
