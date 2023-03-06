@@ -1,8 +1,10 @@
 mod common;
+mod id_generator;
 
 #[cfg(feature = "ptr")]
 pub mod ptr;
 
+pub use id_generator::*;
 pub use common::*;
 
 #[cfg(test)]
@@ -57,5 +59,11 @@ mod test{
         let des = ptr::force_box_to_var::<_,i8>(src.to_box());
         assert_eq!(des,-127,"force_box_to_var failed");
 
+    }
+
+    #[test]
+    fn test_snowflake(){
+        let id = snowflake_id();
+        println!("id --> {}",id);
     }
 }

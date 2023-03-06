@@ -1,0 +1,8 @@
+#[cfg(feature = "snowflake")]
+mod snowflake;
+
+#[cfg(feature = "snowflake")]
+pub use wd_sonyflake::SonyFlakeEntity as Snowflake;
+
+#[cfg(feature = "snowflake")]
+pub use snowflake::snowflake_id;

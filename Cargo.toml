@@ -1,6 +1,6 @@
 [package]
 name = "wd_tools"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 authors = ["wangdong <1443965173@qq.com>"]
 license = "MIT/Apache-2.0"
@@ -11,14 +11,17 @@ description = "tools for rust"
 [dependencies]
 anyhow = {version="1.0.69",optional=true}
 base64 ={version="0.21.0",optional=true}
+lazy_static = {version = "1.4.0",optional = true}
 rust-crypto ={version="0.2.36",optional=true}
 rustc-serialize = {version= "0.3.24",optional=true}
+wd_sonyflake = {version= "0.0.1",optional=true}
 
 [features]
 default=[]
-full=["b64","md5","point-free","hex","ptr"]
-b64=["base64","anyhow"]
+full=["b64", "md5", "point-free", "hex", "ptr", "snowflake"]
+b64=["base64", "anyhow"]
 md5=["rust-crypto"]
 point-free=[]
 hex=["rustc-serialize"]
 ptr=[]
+snowflake=["wd_sonyflake","lazy_static"]
