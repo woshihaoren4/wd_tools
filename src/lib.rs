@@ -66,4 +66,12 @@ mod test{
         let id = snowflake_id();
         println!("id --> {}",id);
     }
+
+    #[test]
+    fn test_uuid_v4_v5(){
+        let uuid = uuid::v4();
+        println!("uuid v4 --> {}",uuid);
+        let uuid = uuid::v5(uuid::UuidV5Namespace::DNS,b"hello world");
+        println!("uuid v5 --> {}",uuid);
+    }
 }
