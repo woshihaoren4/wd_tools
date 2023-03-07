@@ -5,7 +5,7 @@ mod id_generator;
 pub mod ptr;
 
 #[cfg(feature = "time")]
-mod time;
+pub mod time;
 
 pub use id_generator::*;
 pub use common::*;
