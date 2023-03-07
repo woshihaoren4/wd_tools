@@ -4,6 +4,9 @@ mod id_generator;
 #[cfg(feature = "ptr")]
 pub mod ptr;
 
+#[cfg(feature = "time")]
+mod time;
+
 pub use id_generator::*;
 pub use common::*;
 
@@ -73,5 +76,13 @@ mod test{
         println!("uuid v4 --> {}",uuid);
         let uuid = uuid::v5(uuid::UuidV5Namespace::DNS,b"hello world");
         println!("uuid v5 --> {}",uuid);
+    }
+
+    #[test]
+    fn test_time_utc_timestamp(){
+        let ts = time::utc_timestamp();
+        println!("{}",ts);
+        let mts = time::utc_timestamp_millis();
+        println!("{}",mts)
     }
 }
