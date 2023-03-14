@@ -1,6 +1,6 @@
 [package]
 name = "wd_tools"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2021"
 authors = ["wangdong <1443965173@qq.com>"]
 license = "MIT/Apache-2.0"
