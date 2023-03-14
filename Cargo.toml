@@ -20,7 +20,7 @@ chrono = {version = "0.4.23",optional = true}
 
 [features]
 default=[]
-full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time"]
+full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync"]
 b64=["base64", "anyhow"]
 md5=["rust-crypto"]
 point-free=[]
@@ -29,3 +29,4 @@ ptr=[]
 snowflake=["wd_sonyflake", "lazy_static"]
 uid=["uuid/v4","uuid/v5"]
 time=["chrono"]
+sync=[]
