@@ -8,7 +8,7 @@ pub mod ptr;
 pub mod time;
 
 #[cfg(feature = "sync")]
-mod sync;
+pub mod sync;
 
 pub use id_generator::*;
 pub use common::*;
