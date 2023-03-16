@@ -17,9 +17,11 @@ rustc-serialize = {version= "0.3.24",optional=true}
 uuid = { version = "1.3.0",optional=true}
 wd_sonyflake = {version= "0.0.1",optional=true}
 chrono = {version = "0.4.23",optional = true}
+tokio = {version = "1.26.0", optional = true}
 
 [features]
 default=[]
+#default=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync"]
 full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync"]
 b64=["base64", "anyhow"]
 md5=["rust-crypto"]
@@ -29,4 +31,4 @@ ptr=[]
 snowflake=["wd_sonyflake", "lazy_static"]
 uid=["uuid/v4","uuid/v5"]
 time=["chrono"]
-sync=[]
+sync=["anyhow","tokio/sync"]

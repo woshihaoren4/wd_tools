@@ -25,8 +25,8 @@ pub trait PFErr<Ok> {
 
 impl<Ok, T> PFErr<Ok> for T {}
 
-pub trait PFArc<T>{
-    fn arc(self)->Arc<T> ;
+pub trait PFArc<T> {
+    fn arc(self) -> Arc<T>;
 }
 
 impl<T> PFArc<T> for T {
@@ -36,8 +36,8 @@ impl<T> PFArc<T> for T {
     }
 }
 
-pub trait PFBox<T>{
-    fn to_box(self)->Box<T> ;
+pub trait PFBox<T> {
+    fn to_box(self) -> Box<T>;
 }
 
 impl<T> PFBox<T> for T {
@@ -47,8 +47,8 @@ impl<T> PFBox<T> for T {
     }
 }
 
-pub trait PFSome<T>{
-    fn some(self)->Option<T>;
+pub trait PFSome<T> {
+    fn some(self) -> Option<T>;
 }
 
 impl<T> PFSome<T> for T {

@@ -1,7 +1,7 @@
 #[cfg(feature = "b64")]
 mod base64;
 #[cfg(feature = "b64")]
-pub use self::base64::{Base64URLEncode, Base64URLDecode, Base64StdDecode, Base64StdEncode};
+pub use self::base64::{Base64StdDecode, Base64StdEncode, Base64URLDecode, Base64URLEncode};
 
 #[cfg(feature = "md5")]
 mod hash;

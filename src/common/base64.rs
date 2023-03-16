@@ -44,7 +44,6 @@ fn decode<T: AsRef<[u8]>>(data: T) -> anyhow::Result<Vec<u8>> {
     Ok(buf)
 }
 
-
 impl<T: AsRef<[u8]> + panic::UnwindSafe> Base64StdEncode for T {
     fn base64_encode_std(self) -> String {
         ::base64::engine::general_purpose::STANDARD.encode(self)
@@ -53,6 +52,7 @@ impl<T: AsRef<[u8]> + panic::UnwindSafe> Base64StdEncode for T {
 
 impl<T: AsRef<[u8]>> Base64StdDecode for T {
     fn try_base64_decode_std(self) -> anyhow::Result<Vec<u8>> {
-        let buf = ::base64::engine::general_purpose::STANDARD.decode(self)?;Ok(buf)
+        let buf = ::base64::engine::general_purpose::STANDARD.decode(self)?;
+        Ok(buf)
     }
 }
