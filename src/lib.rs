@@ -17,6 +17,8 @@ pub use id_generator::*;
 mod test {
     use crate::*;
     use std::sync::Arc;
+    use crate::sync::NullLock;
+
     #[test]
     fn test_hex() {
         let data: Vec<u8> = vec![101, 201, 30, 40, 50, 60, 70, 80];
@@ -117,5 +119,29 @@ mod test {
         assert_eq!(Arc::new(1), lkv.share(), "test_less_lock two failed");
         lkv.update(|i| i + 1);
         assert_eq!(Arc::new(2), lkv.share(), "test_less_lock three failed");
+    }
+
+    #[derive(Clone,Eq, PartialEq,Debug,Default)]
+    struct NLTest(usize);
+    impl Drop for NLTest{
+        fn drop(&mut self) {
+            println!("drop NLTest {}",self.0)
+        }
+    }
+
+    #[test]
+    fn test_null_lock(){
+        let nl = NullLock::<NLTest>::new();
+        let nu = nl.get();
+        assert_eq!(None,nu,"test_null_lock null failed");
+
+        let nu = nl.get_unwrap();
+        assert_eq!(NLTest::default(),nu,"test_null_lock default failed");
+
+        nl.init(NLTest(1));
+        let i = nl.map(|x| {
+            x.0 + 1
+        }).unwrap();
+        assert_eq!(2,i,"test_null_lock non null failed")
     }
 }
