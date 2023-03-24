@@ -17,7 +17,7 @@ impl<T> NullLock<T> {
         *w.deref_mut() = Some(t);
     }
 
-    pub async fn drop(&self) {
+    pub async fn reset(&self) {
         let mut w = self.inner.write().await;
         *w.deref_mut() = None
     }
