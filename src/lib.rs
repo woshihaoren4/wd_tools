@@ -10,6 +10,9 @@ pub mod time;
 #[cfg(feature = "sync")]
 pub mod sync;
 
+#[cfg(feature = "fs")]
+pub mod fs;
+
 pub use common::*;
 pub use id_generator::*;
 
