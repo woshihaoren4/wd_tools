@@ -2,6 +2,8 @@ use std::future::Future;
 use std::ops::DerefMut;
 use tokio::sync::RwLock;
 
+///空心锁
+///锁在创建时可以不放入内容，也可以在某个时刻销毁锁内的内容
 pub struct NullLock<T> {
     inner: RwLock<Option<T>>,
 }

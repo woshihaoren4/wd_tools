@@ -3,23 +3,25 @@ use std::ops::DerefMut;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
+/// 复制锁
+/// 适用于多度少些的场景，比如配置
 #[derive(Debug)]
-pub struct LessLock<T> {
+pub struct CopyLock<T> {
     lock: Mutex<()>,
     async_lock: tokio::sync::Mutex<()>,
     index: AtomicUsize,
     inner: [RwLock<Arc<T>>; 2],
 }
 
-impl<T: Clone + Send + Sync> LessLock<T> {
-    pub fn new(t: T) -> LessLock<T> {
+impl<T: Clone + Send + Sync> CopyLock<T> {
+    pub fn new(t: T) -> CopyLock<T> {
         let t0 = RwLock::new(Arc::new(t.clone()));
         let t1 = RwLock::new(Arc::new(t));
         let inner = [t0, t1];
         let index = AtomicUsize::new(0);
         let lock = Mutex::new(());
         let async_lock = tokio::sync::Mutex::new(());
-        LessLock {
+        CopyLock {
             lock,
             async_lock,
             index,

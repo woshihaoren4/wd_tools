@@ -1,6 +1,6 @@
 [package]
 name = "wd_tools"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
 authors = ["wangdong <1443965173@qq.com>"]
 license = "MIT/Apache-2.0"
@@ -21,8 +21,8 @@ tokio = {version = "1.26.0", optional = true}
 
 [features]
 default=[]
-#default=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs"]
-full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs"]
+default=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs"]
+#full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs"]
 b64=["base64", "anyhow"]
 md5=["rust-crypto"]
 point-free=[]
