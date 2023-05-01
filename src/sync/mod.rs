@@ -1,8 +1,7 @@
 mod less_lock;
 mod null_lock;
-mod cas_lock;
-mod cow_lock;
+mod wait_group;
 
 pub use less_lock::*;
 pub use null_lock::*;
-pub use cas_lock::*;
+pub use wait_group::*;
