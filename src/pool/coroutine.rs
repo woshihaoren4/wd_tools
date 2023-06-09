@@ -46,6 +46,12 @@ impl ParallelPool {
             };
         }
     }
+
+    pub async fn wait_over(&self){
+        while self.workers.load(Ordering::Relaxed) != 0  {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -56,24 +62,18 @@ mod test{
     #[tokio::test]
     async fn test_parallel_pool(){
         let pp = ParallelPool::new(3);
-        let wg = WaitGroup::new(100);
         for _ in  0..10 {
-            let wg = wg.clone();
             let pp = pp.clone();
             tokio::spawn(async move{
                 for i in 0..10 {
-                    let wg = wg.clone();
                     pp.launch(async move{
                         println!("---> start {}",i);
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                         println!("---> end   {}",i);
-                        wg.done();
                     }).await;
                 }
             });
         }
-        wg.wait().await;
-
-
+        pp.wait_over().await;
     }
 }
