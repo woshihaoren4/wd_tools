@@ -13,6 +13,9 @@ pub mod sync;
 #[cfg(feature = "fs")]
 pub mod fs;
 
+#[cfg(feature = "pool")]
+pub mod pool;
+
 pub use common::*;
 pub use id_generator::*;
 
