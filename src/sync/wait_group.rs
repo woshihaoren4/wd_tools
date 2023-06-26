@@ -39,6 +39,19 @@ impl WaitGroup {
             return output;
         });
     }
+    pub fn defer_args1<FN,FUT,ARGS1>(&self,function:FN,args1:ARGS1)
+        where FUT:Future<Output=()> + Send + 'static,
+              FN:for<'a> FnOnce(ARGS1)->FUT + Send,
+              ARGS1:Send
+    {
+        self.add(1);
+        let wg = self.clone();
+        let future = function(args1);
+        tokio::spawn(async move {
+            future.await;
+            wg.done();
+        });
+    }
     pub async fn wait(self){
         while self.count.load(Ordering::Relaxed) != 0 {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;

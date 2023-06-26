@@ -16,6 +16,9 @@ pub mod fs;
 #[cfg(feature = "pool")]
 pub mod pool;
 
+#[cfg(feature = "chan")]
+pub mod channel;
+
 pub use common::*;
 pub use id_generator::*;
 

@@ -1,6 +1,6 @@
 use std::future::Future;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicIsize, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug,Clone)]
 pub struct ParallelPool {
@@ -57,7 +57,6 @@ impl ParallelPool {
 #[cfg(test)]
 mod test{
     use crate::pool::coroutine::ParallelPool;
-    use crate::sync::WaitGroup;
 
     #[tokio::test]
     async fn test_parallel_pool(){
