@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering};
 use std::task::{Context, Waker};
 use crate::channel::*;
 
@@ -21,21 +21,28 @@ unsafe impl<T> Sync for Channel<T>{}
 #[derive(Debug)]
 struct Slot<T>{
     lock : AtomicBool,
+    some : AtomicBool,
     value: Option<T>
 }
 
 impl<T> Default for Slot<T> {
     fn default() -> Self {
-        Slot{lock:AtomicBool::default(),value:None}
+        Slot{lock:AtomicBool::default(),some:AtomicBool::default(), value:None}
     }
 }
-
+impl<T> Slot<T> {
+    fn is_none(&self)->bool{
+        !self.some.load(Ordering::Relaxed)
+    }
+}
 #[derive(Debug)]
 pub struct SlotWaker{
     lock : AtomicBool,
     len : AtomicUsize,
     buf: VecDeque<Waker>,
 }
+
+
 
 impl Default for SlotWaker {
     fn default() -> Self {
@@ -135,6 +142,9 @@ where T:Unpin
 
         for i in 0..self.cap{
             let index = (si + i) % self.cap;
+            if !self.buf[index].is_none() {
+                continue
+            }
             let res = (&self.buf)[index].lock.compare_exchange_weak(false, true,Ordering::SeqCst,Ordering::Relaxed);
             if res.is_ok() {
                 if self.buf[index].value.is_some(){
@@ -157,6 +167,9 @@ where T:Unpin
         }
         for i in 0..self.cap{
             let index = (ri + i) % self.cap;
+            if self.buf[index].is_none() {
+                continue
+            }
             let res = self.buf[index].lock.compare_exchange_weak(false, true,Ordering::SeqCst,Ordering::Relaxed);
             if res.is_ok() {
                 if self.buf[index].value.is_none(){
@@ -181,6 +194,7 @@ where T:Unpin
         unsafe {
             let buf = &mut*(&self.buf as *const Vec<Slot<T>> as *mut Vec<Slot<T>>);
             buf[idx].value.replace(t);
+            buf[idx].some.store(true,Ordering::Relaxed);
         }
         self.send_idx.fetch_add(1,Ordering::Relaxed);
         send_success_result()
@@ -192,6 +206,7 @@ where T:Unpin
         unsafe {
             let buf = &mut*(&self.buf as *const Vec<Slot<T>> as *mut Vec<Slot<T>>);
             let opt = buf[idx].value.take();
+            buf[idx].some.store(false,Ordering::Relaxed);
             self.recv_idx.fetch_add(1,Ordering::Relaxed);
             recv_success_result(opt.unwrap())
         }
