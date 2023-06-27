@@ -2,6 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::task::Poll::Ready;
 use pin_project_lite::pin_project;
 use crate::channel::*;
 
@@ -25,6 +26,9 @@ impl<T: Unpin> Receiver<T> {
     }
     pub  fn recv(&self)->RecvFuture<T>{
         RecvFuture::new(false,self.chan.clone())
+    }
+    pub fn close(&self) {
+        self.chan.close();
     }
 }
 
@@ -56,6 +60,9 @@ impl<T:Unpin > Future for RecvFuture<T>{
         if this.chan.len() == 0 {
             if *this.once { //只是尝试发一次
                 return Poll::Ready(empty_result());
+            }
+            if !this.chan.status() {
+                return Ready(Err(ChannelError::CLOSED(())))
             }
             if !this.chan.recv_waker_buf().add(cx) {
                 cx.waker().wake_by_ref();

@@ -35,13 +35,27 @@ impl<T:Unpin> Future for ChannelWaker<T>{
         if let Poll::Pending = this.sleep.poll_unpin(cx){
             return Poll::Pending
         }
-        let len = this.chan.len();
-        if  len > 0 && this.chan.recv_waker_buf().len() > 0 {
-            this.chan.recv_waker_buf().wake(len);
+
+        if  this.chan.recv_waker_buf().len() > 0 {
+            let len = this.chan.len();
+            if !this.chan.status() {
+                this.chan.recv_waker_buf().wake(usize::MAX);
+            }else if len > 0{
+                this.chan.recv_waker_buf().wake(len);
+            }
         }
-        let len = this.chan.len();
-        if len < this.chan.cap() && this.chan.send_waker_buf().len() > 0 {
-            this.chan.send_waker_buf().wake(this.chan.cap() - len);
+
+        if  this.chan.send_waker_buf().len() > 0 {
+            let len = this.chan.len();
+            if !this.chan.status() {
+                this.chan.send_waker_buf().wake(usize::MAX);
+            }else if len < this.chan.cap(){
+                this.chan.send_waker_buf().wake(this.chan.cap() - len);
+            }
+        }
+
+        if this.chan.status() && this.chan.send_waker_buf().len() == 0 && this.chan.recv_waker_buf().len() == 0{
+            return Poll::Ready(())
         }
         this.sleep.set(tokio::time::sleep(Duration::from_millis(1)));
         cx.waker().wake_by_ref();

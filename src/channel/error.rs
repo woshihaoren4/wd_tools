@@ -20,18 +20,18 @@ impl<T> Display for ChannelError<T> {
 pub type ChannelResult<T,Val> = Result<T,ChannelError<Val>>;
 
 
-pub fn empty_result<T>()->ChannelResult<T,()>{
+pub(crate) fn empty_result<T>()->ChannelResult<T,()>{
     Err(ChannelError::EMPTY)
 }
-pub fn close_result<T>(val:T)->ChannelResult<(),T>{
+pub(crate) fn close_result<T>(val:T)->ChannelResult<(),T>{
     Err(ChannelError::CLOSED(val))
 }
-pub fn full_result<T>(val:T)->ChannelResult<(),T>{
+pub(crate) fn full_result<T>(val:T)->ChannelResult<(),T>{
     Err(ChannelError::FULL(val))
 }
-pub fn send_success_result<Val>()->ChannelResult<(),Val>{
+pub(crate) fn send_success_result<Val>()->ChannelResult<(),Val>{
     Ok(())
 }
-pub fn recv_success_result<T>(t:T)->ChannelResult<T,()>{
+pub(crate) fn recv_success_result<T>(t:T)->ChannelResult<T,()>{
     Ok(t)
 }

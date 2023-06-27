@@ -2,6 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::task::Poll::Ready;
 use pin_project_lite::pin_project;
 use crate::channel::*;
 
@@ -25,6 +26,9 @@ impl<T: Unpin > Sender<T> {
     }
     pub fn send(&self,t:T)-> SendFuture<T> {
         SendFuture::new(t, false, self.chan.clone())
+    }
+    pub fn close(&self) {
+        self.chan.close();
     }
 }
 
@@ -51,6 +55,12 @@ impl<T:Unpin > Future for SendFuture<T>{
 
     fn poll(self: Pin<&mut SendFuture<T>>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
+
+        if !this.chan.status() {
+            let t = this.inner.take().unwrap();
+            return Ready(close_result(t))
+        }
+
         if this.chan.len() >= this.chan.cap() { //如果已经满了
             if *this.once { //只是尝试发一次
                 let t = this.inner.take().unwrap();

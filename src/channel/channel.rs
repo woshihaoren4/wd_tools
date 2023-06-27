@@ -1,10 +1,11 @@
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::task::{Context, Waker};
 use crate::channel::*;
 
 #[derive(Debug)]
 pub struct Channel<T>{
+    status : Arc<AtomicBool>,
     cap : usize,
     send_idx : AtomicUsize,
     recv_idx : AtomicUsize,
@@ -37,6 +38,7 @@ impl<T> Slot<T> {
 }
 #[derive(Debug)]
 pub struct SlotWaker{
+    status : Arc<AtomicBool>,
     lock : AtomicBool,
     len : AtomicUsize,
     buf: VecDeque<Waker>,
@@ -44,9 +46,9 @@ pub struct SlotWaker{
 
 
 
-impl Default for SlotWaker {
-    fn default() -> Self {
-        Self{lock:AtomicBool::default(),len:AtomicUsize::default(),buf:VecDeque::new()}
+impl SlotWaker {
+    fn new(status : Arc<AtomicBool>) -> Self {
+        Self{status,lock:AtomicBool::default(),len:AtomicUsize::default(),buf:VecDeque::new()}
     }
 }
 
@@ -64,6 +66,9 @@ impl SlotWaker {
     }
     pub(crate) fn add(&self,cx:&Context)->bool{
         if !self.lock() {
+            return false
+        }
+        if !self.status.load(Ordering::Relaxed) {
             return false
         }
         unsafe {
@@ -103,11 +108,13 @@ where T:Unpin
         for _ in 0..cap{
             buf.push(Slot::default())
         }
+        let status = Arc::new(AtomicBool::new(true));
         let send_idx = AtomicUsize::default();
         let recv_idx = AtomicUsize::default();
-        let send_buf = SlotWaker::default();
-        let recv_buf = SlotWaker::default();
+        let send_buf = SlotWaker::new(status.clone());
+        let recv_buf = SlotWaker::new(status.clone());
         Channel {
+            status,
             cap,
             buf,
             send_idx,
@@ -115,6 +122,12 @@ where T:Unpin
             send_buf,
             recv_buf
         }
+    }
+    pub(crate) fn status(&self)->bool{
+        self.status.load(Ordering::Relaxed)
+    }
+    pub(crate) fn close(&self){
+        self.status.store(false,Ordering::Relaxed);
     }
     pub(crate) fn len(&self) ->usize {
         let si = self.send_idx.load(Ordering::Relaxed);
@@ -213,7 +226,5 @@ where T:Unpin
 
     }
 }
-
-
 
 

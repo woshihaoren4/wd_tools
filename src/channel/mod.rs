@@ -15,6 +15,9 @@ impl<T> Channel<T>
     where T:Unpin + 'static
 {
     pub fn new(cap:usize)->(Sender<T>,Receiver<T>){
+        if cap == 0 {
+            panic!("channel new cap is not 0")
+        }
         let chan = Channel::with_capacity(cap);
         let chan = Arc::new(chan);
         waker::ChannelWaker::start_check(chan.clone());
@@ -24,7 +27,6 @@ impl<T> Channel<T>
 
 #[cfg(test)]
 mod test{
-    use std::time::Duration;
     use crate::sync::WaitGroup;
     use super::*;
 
@@ -53,10 +55,21 @@ mod test{
                 sender.send(i).await.expect("发送失败");
                 // println!("send success -> {}",i);
             }
+            sender.close();
         });
         wg.defer(||async move{
-            for i in 0..10_0000{
-                let res = receiver.recv().await.expect("接收失败");
+            for i in 0..100_0000{
+                let res = receiver.recv().await;
+                match res {
+                    Ok(_) => {}
+                    Err(e) => {
+                        if let ChannelError::CLOSED(()) = e {
+                            println!(" all recv -> {}",i);
+                            return;
+                        }
+                    }
+                }
+
                 // println!("recv {} success -> {}",i,res);
             }
         });
