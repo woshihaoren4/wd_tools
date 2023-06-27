@@ -54,7 +54,7 @@ impl WaitGroup {
     }
     pub async fn wait(self){
         while self.count.load(Ordering::Relaxed) != 0 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
         }
     }
 }
