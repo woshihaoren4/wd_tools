@@ -1,21 +1,25 @@
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct ParallelPool {
     parallel_max: usize,
-    workers : Arc<AtomicUsize>
+    workers: Arc<AtomicUsize>,
 }
 
 impl ParallelPool {
-    pub fn new(parallel:usize)->Self{
+    pub fn new(parallel: usize) -> Self {
         let workers = Arc::new(AtomicUsize::new(0));
-        Self{parallel_max:parallel,workers }
+        Self {
+            parallel_max: parallel,
+            workers,
+        }
     }
 
-    pub fn try_launch<F>(&self,f:F)->Option<F>
-        where F:Future<Output=()> + Send + 'static
+    pub fn try_launch<F>(&self, f: F) -> Option<F>
+    where
+        F: Future<Output = ()> + Send + 'static,
     {
         if self.workers.load(Ordering::Relaxed) > self.parallel_max {
             return Some(f);
@@ -23,53 +27,55 @@ impl ParallelPool {
         //乐观锁
         let count = self.workers.fetch_add(1, Ordering::Relaxed);
         if count >= self.parallel_max {
-            self.workers.fetch_sub(1,Ordering::Relaxed);
+            self.workers.fetch_sub(1, Ordering::Relaxed);
             return Some(f);
         }
         let workers = self.workers.clone();
         tokio::spawn(async move {
             f.await;
-            workers.fetch_sub(1,Ordering::Relaxed);
+            workers.fetch_sub(1, Ordering::Relaxed);
         });
-        return None
+        return None;
     }
 
-    pub async fn launch<F>(&self,mut f:F)
-        where F:Future<Output=()> + Send + 'static
+    pub async fn launch<F>(&self, mut f: F)
+    where
+        F: Future<Output = ()> + Send + 'static,
     {
         loop {
             f = if let Some(s) = self.try_launch(f) {
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                 s
-            }else{
+            } else {
                 return;
             };
         }
     }
 
-    pub async fn wait_over(&self){
-        while self.workers.load(Ordering::Relaxed) != 0  {
+    pub async fn wait_over(&self) {
+        while self.workers.load(Ordering::Relaxed) != 0 {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use crate::pool::coroutine::ParallelPool;
 
     #[tokio::test]
-    async fn test_parallel_pool(){
+    async fn test_parallel_pool() {
         let pp = ParallelPool::new(3);
-        for _ in  0..10 {
+        for _ in 0..10 {
             let pp = pp.clone();
-            tokio::spawn(async move{
+            tokio::spawn(async move {
                 for i in 0..10 {
-                    pp.launch(async move{
-                        println!("---> start {}",i);
+                    pp.launch(async move {
+                        println!("---> start {}", i);
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                        println!("---> end   {}",i);
-                    }).await;
+                        println!("---> end   {}", i);
+                    })
+                    .await;
                 }
             });
         }

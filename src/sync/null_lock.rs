@@ -57,20 +57,20 @@ impl<T> NullLock<T> {
         return None;
     }
 
-    pub async fn map_mut<Out,F, M>(&self, map: F) -> anyhow::Result<Out>
-        where
-            M: Future<Output=anyhow::Result<Out>> + Send ,
-            F: FnOnce(&mut T) -> M + Send
+    pub async fn map_mut<Out, F, M>(&self, map: F) -> anyhow::Result<Out>
+    where
+        M: Future<Output = anyhow::Result<Out>> + Send,
+        F: FnOnce(&mut T) -> M + Send,
     {
         let mut w = self.inner.write().await;
         if w.is_none() {
             return Err(anyhow::anyhow!("NullLock need init"));
         }
-        let arg= w.as_mut().unwrap();
+        let arg = w.as_mut().unwrap();
         let m = map(arg);
-        return m.await
+        return m.await;
     }
-    pub fn map_raw(&self)->&RwLock<Option<T>>{
+    pub fn map_raw(&self) -> &RwLock<Option<T>> {
         &self.inner
     }
 }
