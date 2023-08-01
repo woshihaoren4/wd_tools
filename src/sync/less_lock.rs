@@ -79,3 +79,15 @@ impl<T: Clone + Send + Sync> CopyLock<T> {
         }
     }
 }
+
+
+pub struct Acl<T>{
+    inner: Arc<CopyLock<T>>
+}
+
+impl<T: Clone + Send + Sync> Acl<T> {
+    pub fn new(t:T)->Self<T>{
+        let inner = Arc::new(CopyLock::new(t));
+        Acl{inner}
+    }
+}
