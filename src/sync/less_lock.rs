@@ -100,7 +100,7 @@ impl<T> Deref for Acl<T> {
 }
 
 impl<T: Clone + Send + Sync> Acl<T> {
-    pub fn new(t:T)->Self<T>{
+    pub fn new(t:T)->Acl<T>{
         let inner = Arc::new(CopyLock::new(t));
         Acl{inner}
     }
