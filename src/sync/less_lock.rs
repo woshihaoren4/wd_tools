@@ -1,5 +1,5 @@
 use std::future::Future;
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -88,6 +88,14 @@ pub struct Acl<T>{
 impl<T> Clone for Acl<T> {
     fn clone(&self) -> Self {
         Self{inner:self.inner.clone()}
+    }
+}
+
+impl<T> Deref for Acl<T> {
+    type Target = CopyLock<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
