@@ -90,9 +90,10 @@ mod test {
     #[test]
     fn test_ptr() {
         let src = 129u8;
-        let des = ptr::force_arc_to_var::<_, i8>(Arc::new(src));
+        let des:i8 = ptr::unsafe_must_take(src);
         assert_eq!(des, -127, "force_arc_to_var failed");
-        let des = ptr::force_box_to_var::<_, i8>(src.to_box());
+        let src = 129u8;
+        let des:i8 = ptr::unsafe_must_downcast::<_, i8>(src);
         assert_eq!(des, -127, "force_box_to_var failed");
     }
 
