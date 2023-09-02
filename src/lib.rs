@@ -124,9 +124,9 @@ mod test {
         let lkv = sync::CopyLock::new(0);
         let one = lkv.share();
         assert_eq!(Arc::new(0), one, "test_less_lock one failed");
-        lkv.update(|i| i + 1);
+        lkv.update(|i| &*i + 1);
         assert_eq!(Arc::new(1), lkv.share(), "test_less_lock two failed");
-        lkv.update(|i| i + 1);
+        lkv.update(|i| &*i + 1);
         assert_eq!(Arc::new(2), lkv.share(), "test_less_lock three failed");
     }
 
