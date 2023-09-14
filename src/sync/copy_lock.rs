@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::ops::{Deref};
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc,Mutex};
@@ -7,7 +7,6 @@ const COPY_LOCK_LENGTH:usize = 32;
 
 /// 复制锁
 /// 适用于多度少些的场景，比如配置
-#[derive(Debug)]
 pub struct CopyLock<T> {
     wl : Mutex<()>,
     list:[Arc<T>; COPY_LOCK_LENGTH],
@@ -16,11 +15,15 @@ pub struct CopyLock<T> {
 
 }
 
-impl<T:Debug> CopyLock<T> {
+impl<T> CopyLock<T> {
     pub fn new(default: T) -> CopyLock<T> {
         let wl = Mutex::new(());
         let raw = Arc::new(default);
-        let list = (0..COPY_LOCK_LENGTH).map(|_|raw.clone()).collect::<Vec<_>>().try_into().unwrap();
+        let list = if let Ok(o) = (0..COPY_LOCK_LENGTH).map(|_|raw.clone()).collect::<Vec<_>>().try_into() {
+            o
+        }else{
+            panic!("CopyLock.new ")
+        };
         let list_status = (0..COPY_LOCK_LENGTH).map(|_|AtomicU32::new(0)).collect::<Vec<_>>().try_into().unwrap();
         let index = AtomicUsize::new(0);
         CopyLock {
@@ -64,8 +67,6 @@ impl<T:Debug> CopyLock<T> {
     }
 }
 
-
-#[derive(Debug)]
 pub struct Acl<T>{
     inner: Arc<CopyLock<T>>
 }
@@ -84,10 +85,16 @@ impl<T> Deref for Acl<T> {
     }
 }
 
-impl<T:Debug> Acl<T> {
+impl<T> Acl<T> {
     pub fn new(default:T) ->Acl<T>{
         let inner = Arc::new(CopyLock::new(default));
         Acl{inner}
+    }
+}
+
+impl<T:Debug> Debug for Acl<T>{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{:?}",self.share())
     }
 }
 
