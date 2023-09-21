@@ -77,6 +77,12 @@ impl<T> Clone for Acl<T> {
     }
 }
 
+impl<T:Default> Default for Acl<T> {
+    fn default() -> Self {
+        Acl::new(T::default())
+    }
+}
+
 impl<T> Deref for Acl<T> {
     type Target = CopyLock<T>;
 
