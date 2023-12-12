@@ -1,3 +1,6 @@
+mod to_str;
+
+pub use to_str::*;
 use std::any::{TypeId};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
