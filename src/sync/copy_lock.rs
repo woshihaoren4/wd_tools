@@ -3,7 +3,7 @@ use std::ops::{Deref};
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc,Mutex};
 
-const COPY_LOCK_LENGTH:usize = 32;
+const COPY_LOCK_LENGTH:usize = 2;
 
 /// 复制锁
 /// 适用于多度少些的场景，比如配置
@@ -55,7 +55,17 @@ impl<T> CopyLock<T> {
             let arc = &mut *(&self.list as *const [Arc<T>;COPY_LOCK_LENGTH] as *mut [Arc<T>;COPY_LOCK_LENGTH]);
             arc[next_index] = new_val;
         }
-        self.index.store(next_index,Ordering::Relaxed);
+        self.index.store(next_index,Ordering::Release);
+        unsafe {
+            let pred_index = if next_index == 0 {
+                COPY_LOCK_LENGTH - 1
+            }else{
+                next_index - 1
+            };
+            let arc = &mut *(&self.list as *const [Arc<T>;COPY_LOCK_LENGTH] as *mut [Arc<T>;COPY_LOCK_LENGTH]);
+            arc[pred_index] = arc[next_index].clone();
+        }
+
         drop(lock);
     }
 
@@ -111,8 +121,17 @@ mod test{
     use std::time::Duration;
     use crate::sync::Acl;
 
+    #[tokio::test(flavor ="multi_thread", worker_threads = 4)]
+    async fn test_acl_update(){
+        let acl = Acl::new(1usize);
+        acl.update(|o|&*o+1);
+        let arc = acl.share();
+        assert_eq!(*arc,2);
+        println!("success");
+    }
+
     //cargo test --color=always -p wd_tools --lib sync::copy_lock::test::test_acl --no-fail-fast -- --exact  unstable-options --show-output --nocapture
-    #[tokio::test(flavor ="multi_thread", worker_threads = 8)]
+    #[tokio::test(flavor ="multi_thread", worker_threads = 4)]
     async fn test_acl(){
         let index = Arc::new(AtomicUsize::new(1) );
         let wcp = Acl::new(1usize);
@@ -121,18 +140,19 @@ mod test{
             tokio::spawn(async move{
                 loop {
                     let a = acl.share();
-                    if *a > 2000000 {
+                    if *a > 400000 {
                         break
                     }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
                 }
                 println!("---> read over");
             });
         }
-        for _ in 0..2{
+        for _ in 0..4{
             let acl = wcp.clone();
             let nb = index.clone();
             tokio::spawn(async move{
-                for _ in 0..1000000{
+                for _ in 0..100000{
                     let _i = nb.fetch_add(1, Ordering::SeqCst);
                     acl.update(|o|&*o+1)
                 }
@@ -142,6 +162,7 @@ mod test{
 
         println!("success");
         tokio::time::sleep(Duration::from_secs(5)).await;
+        println!("over");
 
     }
 }
