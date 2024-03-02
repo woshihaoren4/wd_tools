@@ -19,6 +19,9 @@ pub mod pool;
 #[cfg(feature = "chan")]
 pub mod channel;
 
+#[cfg(feature = "coll")]
+pub mod coll;
+
 pub use common::*;
 pub use id_generator::*;
 
@@ -28,6 +31,7 @@ mod test {
     use super::*;
     use super::common::EncodeHex;
     use std::sync::Arc;
+    use crate::coll::ByteMap;
 
     #[test]
     fn test_hex() {
@@ -155,4 +159,20 @@ mod test {
     //     }).unwrap();
     //     assert_eq!(2,i,"test_null_lock non null failed")
     // }
+
+    #[test]
+    fn byte_map_chinese(){
+        let mut map = ByteMap::new();
+        map.insert(&("你好".chars().collect::<Vec<char>>()),"你好");
+        map.insert(&("hello".chars().collect::<Vec<char>>()),"hello");
+        map.insert(&("123".chars().collect::<Vec<char>>()),"123");
+
+        let target = "飞流之下，123，hello，你好".chars().collect::<Vec<char>>();
+
+        for i in 0..target.len(){
+            if let Some(s) = map.match_first(&target[i..]){
+                println!("match ok ---> {}",s);
+            }
+        }
+    }
 }
