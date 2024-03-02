@@ -22,7 +22,10 @@ pub mod channel;
 #[cfg(feature = "coll")]
 pub mod coll;
 
+#[allow(unused_imports)]
 pub use common::*;
+
+#[allow(unused_imports)]
 pub use id_generator::*;
 
 #[cfg(test)]
