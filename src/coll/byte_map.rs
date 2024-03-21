@@ -289,7 +289,7 @@ mod test{
         map.insert(&("hello".chars().collect::<Vec<char>>()),"hello");
         map.insert(&("123".chars().collect::<Vec<char>>()),"123");
 
-        let target = "飞流之下，123，hello，你好".chars().collect::<Vec<char>>();
+        let target = "飞流123hello你好飞流直下三千尺".chars().collect::<Vec<char>>();
 
         for i in 0..target.len(){
             if let Some(s) = map.match_first(&target[i..]){

@@ -51,10 +51,10 @@ impl<T> CopyLock<T> {
         while self.list_status[next_index].load(Ordering::SeqCst) != 0 {
 
         }
-        unsafe {
-            let arc = &mut *(&self.list as *const [Arc<T>;COPY_LOCK_LENGTH] as *mut [Arc<T>;COPY_LOCK_LENGTH]);
-            arc[next_index] = new_val;
-        }
+        // unsafe {
+        //     let arc = &mut *(&self.list as *const [Arc<T>;COPY_LOCK_LENGTH] as *mut [Arc<T>;COPY_LOCK_LENGTH]);
+        //     arc[next_index] = new_val;
+        // }
         self.index.store(next_index,Ordering::Release);
         unsafe {
             let pred_index = if next_index == 0 {
@@ -62,8 +62,8 @@ impl<T> CopyLock<T> {
             }else{
                 next_index - 1
             };
-            let arc = &mut *(&self.list as *const [Arc<T>;COPY_LOCK_LENGTH] as *mut [Arc<T>;COPY_LOCK_LENGTH]);
-            arc[pred_index] = arc[next_index].clone();
+            // let arc = &mut *(&self.list as *const [Arc<T>;COPY_LOCK_LENGTH] as *mut [Arc<T>;COPY_LOCK_LENGTH]);
+            // arc[pred_index] = arc[next_index].clone();
         }
 
         drop(lock);
