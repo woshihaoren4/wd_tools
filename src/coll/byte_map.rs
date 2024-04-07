@@ -316,7 +316,7 @@ mod test{
             }
             // println!("insert use time:{}ms",start_time.elapsed().as_millis());
             for i in 0..i{
-                let val= if target_byte_map{
+                let _val= if target_byte_map {
                     map.get(&i).unwrap()
                 }else{
                     hash_map.get(&i).unwrap()
