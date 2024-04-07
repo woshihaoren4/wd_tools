@@ -1,6 +1,6 @@
 [package]
 name = "wd_tools"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2021"
 authors = ["wangdong <1443965173@qq.com>"]
 license = "MIT/Apache-2.0"
@@ -24,10 +24,11 @@ lru = {version = "0.12.1",optional = true}
 
 [features]
 default=[]
-#default=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs","pool","coll"]
-full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs","pool","chan","coll"]
+#default=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs","pool","coll","ctx"]
+full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs","pool","chan","coll","ctx"]
 b64=["base64", "anyhow"]
 md5=["rust-crypto"]
+sha1=["rust-crypto"]
 point-free=[]
 hex=["rustc-serialize"]
 ptr=[]
@@ -39,3 +40,4 @@ fs=["tokio/fs"]
 pool=["tokio/rt-multi-thread"]
 chan=["tokio/time","futures","pin-project-lite"]
 coll=[]
+ctx=[]
