@@ -1,6 +1,6 @@
 [package]
 name = "wd_tools"
-version = "0.11.0"
+version = "0.11.1"
 edition = "2021"
 authors = ["wangdong <1443965173@qq.com>"]
 license = "MIT/Apache-2.0"
@@ -40,4 +40,4 @@ fs=["tokio/fs"]
 pool=["tokio/rt-multi-thread"]
 chan=["tokio/time","futures","pin-project-lite"]
 coll=[]
-ctx=[]
+ctx=["pin-project-lite","sha1"]
