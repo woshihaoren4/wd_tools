@@ -1,5 +1,6 @@
 mod common;
 mod id_generator;
+mod net;
 
 #[cfg(feature = "ptr")]
 pub mod ptr;
@@ -27,6 +28,10 @@ pub use common::*;
 
 #[allow(unused_imports)]
 pub use id_generator::*;
+
+#[allow(unused_imports)]
+pub use net::*;
+
 
 #[cfg(test)]
 // #[cfg(feature = "full")]

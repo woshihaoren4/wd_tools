@@ -10,7 +10,7 @@ use std::time::Duration;
 use pin_project_lite::pin_project;
 use crate::{AsBytes, Sha1};
 
-#[derive(Default,Clone)]
+#[derive(Debug,Default,Clone)]
 pub struct Ctx {
     status: Arc<AtomicUsize>,
     map:Arc<RwLock<HashMap<String,Box<dyn Any+Send+Sync>>>>
