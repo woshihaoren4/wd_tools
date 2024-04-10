@@ -1,10 +1,11 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicIsize, AtomicUsize, Ordering};
 use std::task::{Context, Poll};
 use std::time::Duration;
 use pin_project_lite::pin_project;
@@ -13,6 +14,7 @@ use crate::{AsBytes, Sha1};
 #[derive(Debug,Default,Clone)]
 pub struct Ctx {
     status: Arc<AtomicUsize>,
+    subtask: Arc<AtomicIsize>,
     map:Arc<RwLock<HashMap<String,Box<dyn Any+Send+Sync>>>>
 }
 impl Ctx {
@@ -83,27 +85,83 @@ impl Ctx {
         handle(write.deref_mut())
     }
     #[allow(dead_code)]
+    pub fn add_sub_task(&self,count:isize){
+        self.subtask.fetch_add(count,Ordering::Relaxed);
+    }
+    #[allow(dead_code)]
+    pub fn done_sub_task(&self){
+        self.subtask.fetch_sub(1,Ordering::Relaxed);
+    }
+    // stop all task
+    #[allow(dead_code)]
     pub fn stop(&self){
         self.status.fetch_add(1,Ordering::Relaxed);
     }
     #[allow(dead_code)]
-    pub fn wait(&self,timeout:Option<Duration>)->CtxFut{
+    pub fn wait_stop_status(&self, timeout:Option<Duration>) ->CtxFut{
         let forever = timeout.is_none();
         let timeout = match timeout {
             None => tokio::time::sleep(Duration::from_millis(10)),
             Some(t) => tokio::time::sleep(t),
         };
         let status = self.status.clone();
-        CtxFut{status,timeout,forever}
+        let subtask = self.subtask.clone();
+        CtxFut{status,subtask,timeout,forever,check_subtask:false}
     }
+    // if set timeout, and result is timeout, The subtask does not continue
+    #[allow(dead_code)]
+    pub fn wait_all_subtask_over(&self, timeout:Option<Duration>) ->CtxFut{
+        let forever = timeout.is_none();
+        let timeout = match timeout {
+            None => tokio::time::sleep(Duration::from_millis(10)),
+            Some(t) => tokio::time::sleep(t),
+        };
+        let status = self.status.clone();
+        let subtask = self.subtask.clone();
+        CtxFut{status,subtask,timeout,forever,check_subtask:true}
+    }
+    #[allow(dead_code)]
+    pub async fn exec_future<Fut,Out>(self,future:Fut,timeout:Option<Duration>)->anyhow::Result<Out>
+        where Fut:Future<Output=anyhow::Result<Out>>+Send+'static
+    {
+        self.add_sub_task(1);
+        let result =  tokio::select! {
+                x = future =>{
+                    x
+                }
+                x = self.wait_stop_status(timeout) =>{
+                    Err(x.into())
+                }
+            };
+        self.done_sub_task();
+        return result
+    }
+    #[allow(dead_code)]
+    pub async fn call_timeout<F,Fut,Out>(self,lambda:F,timeout:Option<Duration>)->anyhow::Result<Out>
+        where Fut:Future<Output=anyhow::Result<Out>>+Send+'static,
+            F:FnOnce(Ctx)->Fut
+    {
+        let future = lambda(self.clone());
+        self.exec_future(future,timeout).await
+    }
+    #[allow(dead_code)]
+    pub async fn call<F,Fut,Out>(self,lambda:F)->anyhow::Result<Out>
+        where Fut:Future<Output=anyhow::Result<Out>>+Send+'static,
+              F:FnOnce(Ctx)->Fut
+    {
+        self.call_timeout(lambda,None).await
+    }
+
 }
 
 pin_project! {
 pub struct CtxFut{
     status: Arc<AtomicUsize>,
+    subtask: Arc<AtomicIsize>,
     #[pin]
     timeout:tokio::time::Sleep,
     forever:bool,
+    check_subtask:bool,
 }
 }
 
@@ -112,8 +170,13 @@ pub enum CtxFutResult{
     Over,
     Timeout,
 }
-
-
+impl Display for CtxFutResult{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{:?}",self)
+    }
+}
+impl std::error::Error for CtxFutResult {
+}
 impl Future for CtxFut {
     type Output = CtxFutResult;
 
@@ -123,13 +186,23 @@ impl Future for CtxFut {
         match pro.timeout.as_mut().poll(cx){
             Poll::Ready(_) => {
                 if !*pro.forever {
+                    if *pro.check_subtask {
+                        pro.status.fetch_add(1,Ordering::Relaxed);
+                    }
                     return Poll::Ready(CtxFutResult::Timeout)
                 }
             }
             Poll::Pending => return Poll::Pending,
         };
-        if pro.status.load(Ordering::Relaxed) > 0 {
-            return Poll::Ready(CtxFutResult::Over)
+        if *pro.check_subtask {
+            if pro.subtask.load(Ordering::Relaxed) <= 0 {
+
+                return Poll::Ready(CtxFutResult::Over)
+            }
+        }else{
+            if pro.status.load(Ordering::Relaxed) > 0 {
+                return Poll::Ready(CtxFutResult::Over)
+            }
         }
         unsafe {
             let x = pro.timeout.get_unchecked_mut();
@@ -139,8 +212,6 @@ impl Future for CtxFut {
         Poll::Pending
     }
 }
-
-
 
 
 #[cfg(test)]
@@ -173,7 +244,7 @@ mod test{
                 _ = &mut sleep=>{
                     println!("task exec over");
                 }
-                x = c.wait(None) =>{
+                x = c.wait_stop_status(None) =>{
                     println!("cancel:{:?}",x);
                 }
             };
@@ -181,5 +252,26 @@ mod test{
         tokio::time::sleep(Duration::from_secs(5)).await;
         ctx.stop();
         tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    #[tokio::test]
+    async fn test_call(){
+        let ctx = Ctx::default();
+        tokio::spawn(ctx.clone().call(|_x| async {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            println!("1-->success");
+            Ok(())
+        }));
+        tokio::spawn(ctx.clone().call(|_x| async {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            println!("2-->success");
+            Ok(())
+        }));
+        tokio::spawn(ctx.clone().call(|_x| async {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            println!("3-->success");
+            Ok(())
+        }));
+        ctx.wait_all_subtask_over(Some(Duration::from_secs(3))).await;
+        tokio::time::sleep(Duration::from_secs(3)).await;
     }
 }
