@@ -14,7 +14,7 @@ pub fn unsafe_take<A,B>(a:&mut Option<A>)-> Option<B>{
 }
 
 #[allow(dead_code)]
-pub fn unsafe_downcast<A,B>(a: Box<A>)-> Box<B>{
+pub fn unsafe_downcast<A: ?Sized,B>(a: Box<A>)-> Box<B>{
     unsafe {
         let raw = Box::into_raw(a) as *mut B;
         Box::from_raw(raw)
