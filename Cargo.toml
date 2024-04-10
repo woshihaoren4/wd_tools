@@ -22,10 +22,6 @@ futures = {version = "0.3.28",optional = true}
 pin-project-lite = {version = "0.2.9",optional = true}
 lru = {version = "0.12.1",optional = true}
 async-trait = { version = "0.1.79",optional = true }
-
-hyper = { version = "1.2.0", features = ["client"],optional = true}
-http-body-util = { version = "0.1",optional = true}
-hyper-util = { version = "0.1", features = ["client"],optional = true }
 reqwest = { version = "0.12.3",features = ["json"],optional = true }
 
 [features]
@@ -47,4 +43,4 @@ pool=["tokio/rt-multi-thread"]
 chan=["tokio/time","futures","pin-project-lite"]
 coll=[]
 ctx=["pin-project-lite","sha1"]
-http=["hyper","hyper-util","http-body-util","anyhow","ctx","ptr","reqwest","async-trait"]
+http=["anyhow","ctx","ptr","reqwest","async-trait"]
