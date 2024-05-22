@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
 use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use reqwest::header::{HeaderMap, HeaderValue};
-use crate::Ctx;
+use reqwest::header::{HeaderMap};
+use crate::{Ctx};
 
 pub use reqwest::*;
-use crate::http::header::IntoHeaderName;
 
 #[async_trait::async_trait]
 pub trait ResponseHook:Send+Sync{
@@ -33,7 +33,7 @@ where T:Fn(Ctx,Response)->F + Send+Sync,
 pub struct Http{
     pub method:Method,
     pub url:Url,
-    pub header:Option<HeaderMap>,
+    pub header:Option<HashMap<String,String>>,
     pub body:Option<Body>,
     pub hook_ctx:Ctx,
     client_build_hook:Option<Arc<dyn Fn(Ctx,ClientBuilder)->anyhow::Result<Client>+Send+Sync>>,
@@ -71,16 +71,13 @@ impl Http{
         let response_hook:Option<Arc<dyn ResponseHook>> = Some(Arc::new(ResponseHookImpl{inner:Http::default_response_hook,b:PhantomData::default()}));
         Ok(Http{method,url,header,body,hook_ctx,client_build_hook,request_build_hook,response_hook})
     }
-    pub fn header<K:IntoHeaderName,V:TryInto<HeaderValue>>(mut self,key:K,value:V)->Self{
+    pub fn header<K:Into<String>,V:Into<String>>(mut self,key:K,value:V)->Self
+    {
         if self.header.is_none() {
-            self.header = Some(HeaderMap::new());
+            self.header = Some(HashMap::new());
         }
         if let Some(ref mut header) = self.header {
-            if let Ok(o) = value.try_into(){
-                header.insert(key,o);
-            }else{
-                panic!("unknown header_value type")
-            }
+            header.insert(key.into(),value.into());
         }
         self
     }
@@ -115,7 +112,7 @@ impl Http{
 
         let mut builder = client.request(self.method,self.url);
         if let Some(headers) = self.header{
-            builder = builder.headers(headers);
+            builder = builder.headers(HeaderMap::try_from(&headers).unwrap());
         }
         if let Some(body) = self.body{
             builder = builder.body(body);
