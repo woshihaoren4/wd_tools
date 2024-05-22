@@ -31,11 +31,11 @@ where T:Fn(Ctx,Response)->F + Send+Sync,
 }
 
 pub struct Http{
-    method:Method,
-    url:Url,
-    header:Option<HeaderMap>,
-    body:Option<Body>,
-    hook_ctx:Ctx,
+    pub method:Method,
+    pub url:Url,
+    pub header:Option<HeaderMap>,
+    pub body:Option<Body>,
+    pub hook_ctx:Ctx,
     client_build_hook:Option<Arc<dyn Fn(Ctx,ClientBuilder)->anyhow::Result<Client>+Send+Sync>>,
     request_build_hook:Option<Arc<dyn Fn(Ctx,RequestBuilder)->anyhow::Result<RequestBuilder>+Send+Sync>>,
     response_hook:Option<Arc<dyn ResponseHook>>,
