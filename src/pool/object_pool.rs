@@ -1,23 +1,36 @@
 use std::collections::VecDeque;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::sync::Arc;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::time::Duration;
-use tokio::sync::Mutex;
 
 #[async_trait::async_trait]
 pub trait ObjFactor<T>:Send{
     async fn make(&self) -> Option<T>;
 }
 
-#[derive(Clone)]
 pub struct ObjPool<T>{
     pub max:usize,
     pub idle:usize,
-    pub have:Arc<AtomicIsize>,
-    pub factory: Arc<dyn ObjFactor<T> +Sync+'static>,
-    pub pool : Arc<Mutex<VecDeque<T>>>
+    pub have:AtomicIsize,
+    pub factory: Box<dyn ObjFactor<T> +Sync+'static>,
+    pub pool : Mutex<VecDeque<T>>
+}
+
+pub struct Object<T>{
+    pool:Arc<ObjPool<T>>,
+    t:Option<T>,
+}
+
+impl<T> Drop for Object<T>{
+    fn drop(&mut self) {
+        let t = std::mem::take(&mut self.t);
+        if let Some(t) = t{
+            self.pool.try_push(t);
+        }
+    }
 }
 
 impl<T:Debug> Debug for ObjPool<T> {
@@ -27,40 +40,47 @@ impl<T:Debug> Debug for ObjPool<T> {
 }
 
 impl<T> ObjPool<T>{
-    pub fn new<F:ObjFactor<T>+Sync+'static>(max:usize,idle:usize,factory:F)->Self{
-        let factory = Arc::new(factory);
-        let have = Arc::new(AtomicIsize::default());
-        let pool = Arc::new(Mutex::new(VecDeque::new()));
-        Self{factory,have,max,idle,pool}
+    pub fn new<F:ObjFactor<T>+Sync+'static>(max:usize,idle:usize,factory:F)->Arc<Self>{
+        let factory = Box::new(factory);
+        let have =AtomicIsize::default();
+        let pool = Mutex::new(VecDeque::new());
+        Arc::new(Self{factory,have,max,idle,pool})
+    }
+    pub(crate) fn new_object(self:&Arc<ObjPool<T>>,t:T)->Object<T>{
+        Object{
+            pool:self.clone(),
+            t:Some(t),
+        }
     }
 
-    pub async fn defer<F,FUT,O>(&self, handle:F)->anyhow::Result<O>
-    where F:FnOnce(&mut T)-> FUT + Send ,
+    pub async fn defer<F,FUT,O>(self:&Arc<ObjPool<T>>, handle:F)->anyhow::Result<O>
+    where F:FnOnce(Object<T>)-> FUT + Send +Sync+'static ,
           FUT:  Future<Output=anyhow::Result<O>> +Send ,
         O:Send,
     {
         for i in 0..100{
-            let mut t = if let Some(t) = self.try_pop().await {
+            let t = if let Some(t) = self.try_pop() {
                 t
-            }else{
+            }else if let Some(t) = self.try_new_obj().await{t}
+            else{
                 let t = Self::backoff(i);
                 tokio::time::sleep(Duration::from_millis(t)).await;
                 continue
             };
-            let fut = handle(&mut t);
-            let res = fut.await;
-            self.try_push(t).await;
+            let obj = self.new_object(t);
 
+            let fut = handle(obj);
+            let res = fut.await;
             return res
         }
-        Err(anyhow::anyhow!("System busy"))
+        Err(anyhow::anyhow!("ObjPool: System busy"))
     }
 
-    pub async fn try_pop(&self)->Option<T>{
-        let mut lock = self.pool.lock().await;
-        if let Some(t) = lock.pop_front() {
-            return Some(t)
-        }
+    pub(crate) fn try_pop(&self)->Option<T>{
+        let mut lock = self.pool.lock().unwrap();
+        lock.pop_front()
+    }
+    pub(crate) async fn try_new_obj(&self)->Option<T>{
         //超过最大值
         if self.have.load(Ordering::Relaxed) >= self.max as isize {
             return None
@@ -72,8 +92,8 @@ impl<T> ObjPool<T>{
         }
         return None
     }
-    pub async fn try_push(&self,t:T){
-        let mut lock = self.pool.lock().await;
+    pub(crate) fn try_push(&self,t:T){
+        let mut lock = self.pool.lock().unwrap();
         if lock.len() < self.idle {
             lock.push_back(t)
         }else{
@@ -81,13 +101,33 @@ impl<T> ObjPool<T>{
         }
     }
 
-    pub fn backoff(i:usize)->u64{
+    pub(crate) fn backoff(i:usize)->u64{
         return match i {
             _ if i >9 =>1000,
             _ if i >3 => 100,
             _ => 10,
         }
 
+    }
+}
+
+impl<T> Deref for Object<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        if let Some(ref t) = self.t{
+            return t
+        }
+        panic!("Object.t is nil")
+    }
+}
+
+impl<T> DerefMut for Object<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        if let Some(ref mut t) = self.t{
+            return t
+        }
+        panic!("Object.t is nil")
     }
 }
 
@@ -102,26 +142,23 @@ where F:Fn()->T + Send +Sync,T:Send
 
 #[cfg(test)]
 mod test{
+    use std::ops::{ DerefMut};
     use std::time::Duration;
-    use crate::pool::ObjPool;
+    use crate::pool::{ObjPool};
 
-    //cargo test  pool::connect_pool::test::test_pool -- --nocapture
+    //cargo test  pool::object_pool::test::test_pool -- --nocapture
     #[tokio::test(flavor ="multi_thread", worker_threads = 4)]
-    async fn test_pool(){
+    async fn test_pool<'a>(){
         let pool = ObjPool::new(10,2,||{
             1000u64
         });
-        let start_time = std::time::Instant::now();
         for i in 0..100{
             let pool = pool.clone();
             tokio::spawn(async move {
-                pool.defer(|t:& mut u64|  {
-                    let t = *t;
-                    async move{
+                pool.defer(move |mut obj| async move {
                         println!("--->{}",i);
-                        tokio::time::sleep(Duration::from_millis(t)).await;
-                        return Ok(());
-                    }
+                        tokio::time::sleep(Duration::from_millis(*obj.deref_mut())).await;
+                        Ok(())
                 }).await.unwrap();
             });
         }
