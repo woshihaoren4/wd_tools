@@ -1,5 +1,5 @@
 mod coroutine;
-mod connect_pool;
+mod object_pool;
 
 pub use coroutine::ParallelPool;
-pub use connect_pool::ObjPool;
+pub use object_pool::*;
