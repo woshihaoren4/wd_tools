@@ -1,6 +1,6 @@
 [package]
 name = "wd_tools"
-version = "0.13.3"
+version = "0.13.4"
 edition = "2021"
 authors = ["wangdong <1443965173@qq.com>"]
 license = "MIT/Apache-2.0"
@@ -39,7 +39,7 @@ uid=["uuid/v4","uuid/v5"]
 time=["chrono"]
 sync=["anyhow","lru","tokio/sync","tokio/time","tokio/rt-multi-thread","tokio/macros"]
 fs=["tokio/fs"]
-pool=["tokio/rt-multi-thread"]
+pool=["tokio/rt-multi-thread","tokio/time","async-trait"]
 chan=["tokio/time","futures","pin-project-lite"]
 coll=[]
 ctx=["pin-project-lite","sha1","tokio/macros"]
