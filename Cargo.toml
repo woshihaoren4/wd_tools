@@ -1,6 +1,6 @@
 [package]
 name = "wd_tools"
-version = "0.13.6"
+version = "0.13.7"
 edition = "2021"
 authors = ["wangdong <1443965173@qq.com>"]
 license = "MIT/Apache-2.0"
@@ -22,7 +22,7 @@ futures = {version = "0.3.28",optional = true}
 pin-project-lite = {version = "0.2.9",optional = true}
 lru = {version = "0.12.1",optional = true}
 async-trait = { version = "0.1.79",optional = true }
-reqwest = { version = "0.12.3",features = ["json"],optional = true }
+reqwest = { version = "0.12.0",features = ["json"],optional = true }
 
 [features]
 default=[]
