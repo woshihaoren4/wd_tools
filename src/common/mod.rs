@@ -29,3 +29,8 @@ mod ctx;
 
 #[cfg(feature = "ctx")]
 pub use ctx::Ctx;
+
+#[cfg(feature = "regex_simple")]
+mod regex;
+#[cfg(feature = "regex_simple")]
+pub use regex::*;

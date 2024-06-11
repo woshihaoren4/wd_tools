@@ -1,6 +1,6 @@
 [package]
 name = "wd_tools"
-version = "0.13.7"
+version = "0.13.8"
 edition = "2021"
 authors = ["wangdong <1443965173@qq.com>"]
 license = "MIT/Apache-2.0"
@@ -23,11 +23,12 @@ pin-project-lite = {version = "0.2.9",optional = true}
 lru = {version = "0.12.1",optional = true}
 async-trait = { version = "0.1.79",optional = true }
 reqwest = { version = "0.12.0",features = ["json"],optional = true }
+regex = {version = "1.10.5",optional = true}
 
 [features]
 default=[]
-#default=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs","pool","coll","ctx","http","mutex"]
-full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs","pool","chan","coll","ctx","http","mutex"]
+#default=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs","pool","coll","ctx","http","mutex","regex_simple"]
+full=["b64", "md5", "point-free", "hex", "ptr", "snowflake","uid","time","sync","fs","pool","chan","coll","ctx","http","mutex","regex_simple"]
 b64=["base64", "anyhow"]
 md5=["rust-crypto"]
 sha1=["rust-crypto"]
@@ -45,3 +46,4 @@ coll=[]
 ctx=["pin-project-lite","sha1","tokio/macros"]
 http=["anyhow","ctx","ptr","reqwest","async-trait"]
 mutex=[]
+regex_simple=["regex"]

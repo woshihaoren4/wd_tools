@@ -40,6 +40,7 @@ mod test {
     use super::common::EncodeHex;
     use std::sync::Arc;
     use crate::coll::ByteMap;
+    use super::common::SimpleRegexMatch;
 
     #[test]
     fn test_hex() {
@@ -182,5 +183,14 @@ mod test {
                 println!("match ok ---> {}",s);
             }
         }
+    }
+
+    #[test]
+    fn regex(){
+        let re = r#"\[(.*?)\]"#;
+        let s = r#"a[b][c]d[1[2]3]"#;
+
+        let vec = s.regex(re).unwrap();
+        println!("simple regex match : {:?}",vec);
     }
 }
