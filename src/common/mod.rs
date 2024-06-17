@@ -32,5 +32,9 @@ pub use ctx::Ctx;
 
 #[cfg(feature = "regex_simple")]
 mod regex;
+
 #[cfg(feature = "regex_simple")]
 pub use regex::*;
+
+#[cfg(feature = "global")]
+pub mod global;

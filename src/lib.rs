@@ -32,7 +32,6 @@ pub use id_generator::*;
 #[allow(unused_imports)]
 pub use net::*;
 
-
 #[cfg(test)]
 // #[cfg(feature = "full")]
 mod test {
