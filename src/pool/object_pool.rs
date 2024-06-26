@@ -16,7 +16,8 @@ pub struct ObjPool<T>{
     pub idle:usize,
     pub have:AtomicIsize,
     pub factory: Box<dyn ObjFactor<T> +Sync+'static>,
-    pub pool : Mutex<VecDeque<T>>
+    pub pool : Mutex<VecDeque<T>>,
+    pub multi_try_new:bool,
 }
 
 pub struct Object<T>{
@@ -44,7 +45,8 @@ impl<T> ObjPool<T>{
         let factory = Box::new(factory);
         let have =AtomicIsize::default();
         let pool = Mutex::new(VecDeque::new());
-        Arc::new(Self{factory,have,max,idle,pool})
+        let multi_try_new = false;
+        Arc::new(Self{factory,have,max,idle,pool,multi_try_new})
     }
     pub(crate) fn new_object(self:&Arc<ObjPool<T>>,t:T)->Object<T>{
         Object{
@@ -62,7 +64,9 @@ impl<T> ObjPool<T>{
             let t = if let Some(t) = self.try_pop() {
                 t
             }else if let Some(t) = self.try_new_obj().await{t}
-            else{
+            else if self.multi_try_new && !self.is_full()  {
+                return Err(anyhow::anyhow!("ObjPool: new object failed"))
+            }else{
                 let t = Self::backoff(i);
                 tokio::time::sleep(Duration::from_millis(t)).await;
                 continue
@@ -100,6 +104,9 @@ impl<T> ObjPool<T>{
             self.have.fetch_sub(1,Ordering::Relaxed);
         }
     }
+    pub fn is_full(&self)->bool{
+        self.have.load(Ordering::Relaxed) >= self.max as isize
+    }
 
     pub(crate) fn backoff(i:usize)->u64{
         return match i {
@@ -107,7 +114,6 @@ impl<T> ObjPool<T>{
             _ if i >3 => 100,
             _ => 10,
         }
-
     }
 }
 
@@ -162,7 +168,7 @@ mod test{
                 }).await.unwrap();
             });
         }
-        tokio::time::sleep(Duration::from_secs(20)).await;
+        tokio::time::sleep(Duration::from_secs(15)).await;
         println!("pool=>{:?}",pool);
 
     }

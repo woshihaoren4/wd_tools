@@ -1,7 +1,6 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::{Mutex, Once};
-use crate::ptr::type_id;
 
 static mut VARS:Option<HashMap<TypeId,Box<dyn Any>>> = None;
 static mut VARS_LOCK: Mutex<()> = Mutex::new(());
