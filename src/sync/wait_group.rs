@@ -3,6 +3,9 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
+use pin_project_lite::pin_project;
+use tokio::time::Sleep;
 
 #[derive(Debug, Default)]
 pub struct WaitGroup {
@@ -56,24 +59,36 @@ impl WaitGroup {
             wg.done();
         });
     }
-    pub async fn wait(self) {
-        while self.count.load(Ordering::Relaxed) != 0 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
+    pub fn wait(&self) -> WaitGroupFut {
+        WaitGroupFut{
+            sleep: tokio::time::sleep(Duration::from_millis(1)),
+            count:self.count.clone()
         }
     }
 }
+pin_project! {
+    pub struct WaitGroupFut {
+        #[pin]
+        sleep: Sleep,
+        count: Arc<AtomicIsize>,
+    }
+}
 
-impl Future for WaitGroup {
+impl Future for WaitGroupFut {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let count = self.count.load(Ordering::Relaxed);
-        if count <= 0 {
-            Poll::Ready(())
-        } else {
+        let this = self.project();
+        let mut sleep = this.sleep;
+        let ok = sleep.as_mut().poll(cx).is_ready();
+        if ok {
+            if this.count.load(Ordering::Relaxed) <= 0 {
+                return Poll::Ready(())
+            }
+            sleep.set(tokio::time::sleep(Duration::from_millis(1)));
             cx.waker().wake_by_ref();
-            Poll::Pending
         }
+        return Poll::Pending;
     }
 }
 
@@ -81,7 +96,6 @@ impl Future for WaitGroup {
 mod test {
     use crate::sync::WaitGroup;
 
-    // 会在主协成中不断判断 当前线程是否为空 十分消耗资源
     #[tokio::test]
     async fn test_wait_group() {
         let wg = WaitGroup::new(10);
@@ -95,7 +109,7 @@ mod test {
                 wg.done();
             });
         }
-        wg.await;
+        wg.wait().await;
         println!("over")
     }
 
