@@ -45,6 +45,9 @@ impl<T> AsyncMutex<T>{
             AsyncMutexFut{data,status}
         }
     }
+    pub unsafe fn raw_ptr_mut(&self)->*mut T{
+        self.data.get()
+    }
     #[allow(dead_code)]
     pub fn synchronize(&self)->AsyncMutexGuard<T>{
         let mutex = self.lock();

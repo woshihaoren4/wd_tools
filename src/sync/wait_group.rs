@@ -88,7 +88,7 @@ impl Future for WaitGroupFut {
             sleep.set(tokio::time::sleep(Duration::from_millis(1)));
             cx.waker().wake_by_ref();
         }
-        return Poll::Pending;
+        Poll::Pending
     }
 }
 
