@@ -9,3 +9,5 @@ pub mod global;
 pub use copy_lock::*;
 pub use null_lock::*;
 pub use wait_group::*;
+pub use async_mutex::*;
+pub use async_lru::*;
