@@ -5,12 +5,12 @@ struct TestStruct{
 
 #[macro_export]
 macro_rules! share {
-    ($obj:tt) => {
+    ($obj:tt,$gf:tt) => {
 impl $obj{
     pub fn lock_ref_mut<T,Out>(handle:T)->Out
     where T: FnOnce(&mut $obj) -> Out
     {
-        let this = get_test_struct();
+        let this = $gf();
         let mut binding = this.synchronize();
         let target = std::ops::DerefMut::deref_mut(&mut binding);
         handle(target)
@@ -18,7 +18,7 @@ impl $obj{
     pub fn unsafe_mut_ptr<T,Out>(handle:T) ->Out
     where T: FnOnce(&mut $obj) -> Out
     {
-        let this = get_test_struct();
+        let this = $gf();
         unsafe{
             let target = this.raw_ptr_mut();
             return handle(&mut *target)
@@ -27,7 +27,7 @@ impl $obj{
     pub async fn async_ref<T,Out>(handle:T)->Out
         where T: FnOnce(&mut $obj) -> Out
     {
-        let this = get_test_struct();
+        let this = $gf();
         let mut target = this.lock().await;
         handle(std::ops::DerefMut::deref_mut(&mut target))
     }
@@ -35,7 +35,7 @@ impl $obj{
         where T:FnOnce(&mut $obj) -> F,
             F:std::future::Future<Output=Out>
     {
-        let this = get_test_struct();
+        let this = $gf();
         let mut target = this.lock().await;
         handle(std::ops::DerefMut::deref_mut(&mut target)).await
     }
@@ -68,7 +68,7 @@ mod test{
         }
     }
 
-    share!(TestStruct);
+    share!(TestStruct,get_test_struct);
 
     #[tokio::test(flavor ="multi_thread", worker_threads = 2)]
     async fn test_global(){
