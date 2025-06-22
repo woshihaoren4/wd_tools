@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 pub trait ChannelError:Display {
-    fn into_err<T>(self)->ChannelResult<T,Self>{
+    fn into_err<T>(self)->ChannelResult<T,Self> where Self: Sized{
         ChannelResult::Err(self)
     }
 }
@@ -15,8 +15,8 @@ pub enum SendError<T> {
 impl<T> Display for SendError<T>   {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            SendError::CLOSED(_) =>  write!(f, "Channel is EMPTY"),
-            SendError::FULL(_) =>  write!(f, "Channel is full"),
+            SendError::CLOSED(_) =>  write!(f, "ChannelClose"),
+            SendError::FULL(_) =>  write!(f, "ChannelFull"),
             SendError::UNKNOWN(_,e) =>  write!(f, "ChannelUnknown error:{e}"),
         }
     }
@@ -24,7 +24,25 @@ impl<T> Display for SendError<T>   {
 
 impl<T> ChannelError for SendError<T> {}
 
-pub type ChannelResult<T,E:ChannelError> = Result<T,E>;
+#[derive(Debug, PartialEq)]
+pub enum RecvError {
+    CLOSED,
+    EMPTY,
+    UNKNOWN(String),
+}
+impl Display for RecvError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecvError::CLOSED =>  write!(f, "ChannelClose"),
+            RecvError::EMPTY =>  write!(f, "ChannelEmpty"),
+            RecvError::UNKNOWN(e) =>  write!(f, "ChannelUnknown error:{e}"),
+        }
+    }
+}
+
+impl ChannelError for RecvError {}
+
+pub type ChannelResult<T,E> = Result<T,E>;
 
 // impl<T> Display for ChannelError<T> {
 //     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
