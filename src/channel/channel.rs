@@ -1,247 +1,106 @@
 use crate::channel::*;
 use std::collections::VecDeque;
+use std::future::Future;
+use std::ops::DerefMut;
+use std::pin::{pin, Pin};
+use std::sync::{Arc, LockResult, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::task::{Context, Waker};
+use std::task::{Context, Poll, Waker};
+use pin_project_lite::pin_project;
 
 #[derive(Debug)]
 pub struct Channel<T> {
     status: Arc<AtomicBool>,
     cap: usize,
-    send_idx: AtomicUsize,
-    recv_idx: AtomicUsize,
-    // len : AtomicUsize,
-    // lock: AtomicBool,
-    buf: Vec<Slot<T>>,
-    send_buf: SlotWaker,
-    recv_buf: SlotWaker,
+    wait_deque: Arc<Mutex<WaitDeque<T>>>
+}
+
+#[derive(Debug)]
+pub struct WaitDeque<T>{
+    deque: VecDeque<T>,
+    sender_waker: VecDeque<Waker>,
+    receiver_waker: VecDeque<Waker>,
+}
+impl<T> Clone for Channel<T>{
+    fn clone(&self) -> Self {
+        Self{
+            status:self.status.clone(),
+            cap:self.cap,
+            wait_deque:self.wait_deque.clone(),
+        }
+    }
 }
 
 unsafe impl<T> Send for Channel<T> {}
 unsafe impl<T> Sync for Channel<T> {}
 
-#[derive(Debug)]
-struct Slot<T> {
-    lock: AtomicBool,
-    some: AtomicBool,
-    value: Option<T>,
+pin_project! {
+    pub struct SenderFuture<T>{
+    data: Option<T>,
+    chan: Channel<T>,
+    }
 }
+impl<T> Future for SenderFuture<T> {
+    type Output = ChannelResult<(),T>;
 
-impl<T> Default for Slot<T> {
-    fn default() -> Self {
-        Slot {
-            lock: AtomicBool::default(),
-            some: AtomicBool::default(),
-            value: None,
-        }
-    }
-}
-impl<T> Slot<T> {
-    fn is_none(&self) -> bool {
-        !self.some.load(Ordering::Relaxed)
-    }
-}
-#[derive(Debug)]
-pub struct SlotWaker {
-    status: Arc<AtomicBool>,
-    lock: AtomicBool,
-    len: AtomicUsize,
-    buf: VecDeque<Waker>,
-}
-
-impl SlotWaker {
-    fn new(status: Arc<AtomicBool>) -> Self {
-        Self {
-            status,
-            lock: AtomicBool::default(),
-            len: AtomicUsize::default(),
-            buf: VecDeque::new(),
-        }
-    }
-}
-
-impl SlotWaker {
-    pub(crate) fn len(&self) -> usize {
-        self.len.load(Ordering::Relaxed)
-    }
-    fn lock(&self) -> bool {
-        let res = self
-            .lock
-            .compare_exchange_weak(false, true, Ordering::SeqCst, Ordering::Relaxed);
-        return res.is_ok();
-    }
-
-    fn unlock(&self) {
-        self.lock.store(false, Ordering::Relaxed);
-    }
-    pub(crate) fn add(&self, cx: &Context) -> bool {
-        if !self.lock() {
-            return false;
-        }
-        if !self.status.load(Ordering::Relaxed) {
-            return false;
-        }
-        unsafe {
-            let buf = &mut *(&self.buf as *const VecDeque<Waker> as *mut VecDeque<Waker>);
-            buf.push_back(cx.waker().clone());
-        }
-        self.len.fetch_add(1, Ordering::Relaxed);
-        self.unlock();
-        true
-    }
-    pub(crate) fn wake(&self, len: usize) -> bool {
-        if !self.lock() {
-            return false;
-        }
-        unsafe {
-            let buf = &mut *(&self.buf as *const VecDeque<Waker> as *mut VecDeque<Waker>);
-            for _ in 0..len {
-                match buf.pop_front() {
-                    None => break,
-                    Some(w) => {
-                        w.wake_by_ref();
-                        self.len.fetch_sub(1, Ordering::Relaxed);
-                    }
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        let data = this.data.deref_mut();
+        let cap = this.chan.cap;
+        let res = this.chan._try_send(data,|c,d|{
+            if c.deque.len() >= cap {
+                c.sender_waker.push_back(cx.waker().clone());
+                Ok(Poll::Pending)
+            } else {
+                let data =d.take().unwrap();
+                c.deque.push_back(data);
+                if let Some(recv) = c.receiver_waker.pop_front() {
+                    recv.wake();
                 }
+                Ok(Poll::Ready(ChannelResult::Ok(())))
             }
-        }
-        self.unlock();
-        true
+        });
+        res.unwrap_or_else(|e| Poll::Ready(ChannelResult::Err(e)))
     }
 }
 
-impl<T> Channel<T>
-where
-    T: Unpin,
-{
-    pub fn with_capacity(cap: usize) -> Channel<T> {
-        let mut buf = Vec::with_capacity(cap);
-        for _ in 0..cap {
-            buf.push(Slot::default())
+impl<T> Channel<T> {
+    pub fn new(mut cap: usize) -> Channel<T> {
+        if cap <= 0 {
+            cap = 1;
         }
-        let status = Arc::new(AtomicBool::new(true));
-        let send_idx = AtomicUsize::default();
-        let recv_idx = AtomicUsize::default();
-        let send_buf = SlotWaker::new(status.clone());
-        let recv_buf = SlotWaker::new(status.clone());
-        Channel {
-            status,
+        let deque = VecDeque::with_capacity(cap);
+        Channel{
+            status: Arc::new(AtomicBool::new(true)),
             cap,
-            buf,
-            send_idx,
-            recv_idx,
-            send_buf,
-            recv_buf,
+            wait_deque: Arc::new(Mutex::new(WaitDeque{
+                deque,
+                sender_waker: VecDeque::new(),
+                receiver_waker: VecDeque::new(),
+            }))
         }
     }
-    pub(crate) fn status(&self) -> bool {
+    pub fn get_status(&self) -> bool {
         self.status.load(Ordering::Relaxed)
     }
-    pub(crate) fn close(&self) {
-        self.status.store(false, Ordering::Relaxed);
-    }
-    pub(crate) fn len(&self) -> usize {
-        let si = self.send_idx.load(Ordering::Relaxed);
-        let ri = self.recv_idx.load(Ordering::Relaxed);
-        if si < ri {
-            return 0;
+    pub(crate) fn _try_send<Out>(&self, data:&mut Option<T>,send_handle:impl FnOnce(&mut WaitDeque<T>,&mut Option<T>)->ChannelResult<Out, SendError<T>>) -> ChannelResult<Out, SendError<T>> {
+        if !self.get_status() {
+            let data = data.take().unwrap();
+            return SendError::CLOSED(data).into_err()
         }
-        return si - ri;
-    }
-    pub(crate) fn cap(&self) -> usize {
-        self.cap
-    }
-    pub(crate) fn send_waker_buf(&self) -> &SlotWaker {
-        &self.send_buf
-    }
-    pub(crate) fn recv_waker_buf(&self) -> &SlotWaker {
-        &self.recv_buf
-    }
-    pub(crate) fn try_send_lock(&self) -> Option<usize> {
-        let si = self.send_idx.load(Ordering::Relaxed);
-        let ri = self.recv_idx.load(Ordering::Relaxed);
-        if si >= ri + self.cap {
-            return None;
-        }
-
-        for i in 0..self.cap {
-            let index = (si + i) % self.cap;
-            if !self.buf[index].is_none() {
-                continue;
+        let mut lock = match self.wait_deque.lock() {
+            Ok(o) => o,
+            Err(e) => {
+                let data = data.take().unwrap();
+                return SendError::UNKNOWN(data,e.to_string()).into_err()
             }
-            let res = (&self.buf)[index].lock.compare_exchange_weak(
-                false,
-                true,
-                Ordering::SeqCst,
-                Ordering::Relaxed,
-            );
-            if res.is_ok() {
-                if self.buf[index].value.is_some() {
-                    self.unlock(index);
-                } else {
-                    return Some(index);
-                }
-            }
-            if self.len() >= self.cap {
-                return None;
-            }
-        }
-        return None;
+        };
+        send_handle(lock.deref_mut(),data)
     }
-    pub(crate) fn try_recv_lock(&self) -> Option<usize> {
-        let si = self.send_idx.load(Ordering::Relaxed);
-        let ri = self.recv_idx.load(Ordering::Relaxed);
-        if ri >= si {
-            return None;
-        }
-        for i in 0..self.cap {
-            let index = (ri + i) % self.cap;
-            if self.buf[index].is_none() {
-                continue;
-            }
-            let res = self.buf[index].lock.compare_exchange_weak(
-                false,
-                true,
-                Ordering::SeqCst,
-                Ordering::Relaxed,
-            );
-            if res.is_ok() {
-                if self.buf[index].value.is_none() {
-                    self.unlock(index);
-                } else {
-                    return Some(index);
-                }
-            }
-            if self.len() == 0 {
-                return None;
-            }
-        }
-        return None;
-    }
-    pub(crate) fn unlock(&self, idx: usize) {
-        self.buf[idx].lock.store(false, Ordering::Relaxed);
-    }
-    pub(crate) fn unsafe_send(&self, t: T, idx: usize) -> ChannelResult<(), T> {
-        if self.buf[idx].value.is_some() {
-            return full_result(t);
-        }
-        unsafe {
-            let buf = &mut *(&self.buf as *const Vec<Slot<T>> as *mut Vec<Slot<T>>);
-            buf[idx].value.replace(t);
-            buf[idx].some.store(true, Ordering::Relaxed);
-        }
-        self.send_idx.fetch_add(1, Ordering::Relaxed);
-        send_success_result()
-    }
-    pub(crate) fn unsafe_recv(&self, idx: usize) -> ChannelResult<T, ()> {
-        if self.buf[idx].value.is_none() {
-            return empty_result();
-        }
-        unsafe {
-            let buf = &mut *(&self.buf as *const Vec<Slot<T>> as *mut Vec<Slot<T>>);
-            let opt = buf[idx].value.take();
-            buf[idx].some.store(false, Ordering::Relaxed);
-            self.recv_idx.fetch_add(1, Ordering::Relaxed);
-            recv_success_result(opt.unwrap())
+    pub fn send(&self, value: T) -> SenderFuture<T> {
+        SenderFuture {
+            data: Some(value),
+            chan: self.clone(),
         }
     }
 }
