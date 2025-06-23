@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 pub trait ChannelError:Display {
     fn into_err<T>(self)->ChannelResult<T,Self> where Self: Sized{
@@ -6,7 +6,7 @@ pub trait ChannelError:Display {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum SendError<T> {
     CLOSED(T),
     FULL(T),
@@ -23,8 +23,14 @@ impl<T> Display for SendError<T>   {
 }
 
 impl<T> ChannelError for SendError<T> {}
+impl<T> Debug for SendError<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+impl<T> std::error::Error for SendError<T> {}
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum RecvError {
     CLOSED,
     EMPTY,
@@ -41,6 +47,12 @@ impl Display for RecvError {
 }
 
 impl ChannelError for RecvError {}
+impl Debug for RecvError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+impl std::error::Error for RecvError {}
 
 pub type ChannelResult<T,E> = Result<T,E>;
 

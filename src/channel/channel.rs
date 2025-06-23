@@ -188,4 +188,7 @@ impl<T> Channel<T> {
             i.wake();
         }
     }
+    pub fn is_closed(&self) -> bool {
+        !self.status.load(Ordering::Relaxed)
+    }
 }

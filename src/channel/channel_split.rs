@@ -22,6 +22,9 @@ impl<T> Sender<T>{
     pub fn close(&self) {
         self.chan.close()
     }
+    pub fn is_closed(&self) -> bool {
+        self.chan.is_closed()
+    }
 }
 
 #[derive(Debug,Clone)]
@@ -44,6 +47,9 @@ impl<T> Receiver<T>{
     }
     pub fn close(&self) {
         self.chan.close()
+    }
+    pub fn is_closed(&self) -> bool {
+        self.chan.is_closed()
     }
 }
 
