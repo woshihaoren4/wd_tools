@@ -26,25 +26,25 @@ mod test {
         assert_eq!(res, Err(RecvError::EMPTY), "first try recv failed");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor ="multi_thread", worker_threads = 4)]
     async fn test_channel_wait() {
         let wg = WaitGroup::default();
         let (sender, receiver) = Channel::<usize>::new(100);
         let start_time = std::time::Instant::now();
-        for i in 0..10 {
+        for i in 0..100 {
             let sender = sender.clone();
             wg.defer(|| async move {
-                for i in 0..100_0000 {
+                for i in 0..10_0000 {
                     sender.send(i).await.expect("发送失败");
                     // println!("send success -> {}",i);
                 }
             });
         }
         // sender.close();
-        for i in 0..10 {
+        for i in 0..100 {
             let receiver = receiver.clone();
             wg.defer(|| async move {
-                for i in 0..100_0000 {
+                for i in 0..10_0000 {
                     let res = receiver.recv().await;
                     match &res {
                         Ok(_) => {}
