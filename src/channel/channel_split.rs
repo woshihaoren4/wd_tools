@@ -1,9 +1,15 @@
 use std::sync::Arc;
 use crate::channel::{Channel, ChannelResult, RecvError, RecvFuture, SendError, SendFuture};
 
-#[derive(Debug,Clone)]
+#[derive(Debug)]
 pub struct Sender<T> {
     chan: Arc<Channel<T>>
+}
+
+impl<T> Clone for Sender<T> {
+    fn clone(&self) -> Self {
+        Self{chan: self.chan.clone()}
+    }
 }
 
 impl<T> From<Arc<Channel<T>>> for Sender<T> {
@@ -27,9 +33,15 @@ impl<T> Sender<T>{
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug)]
 pub struct Receiver<T> {
     chan: Arc<Channel<T>>
+}
+
+impl<T> Clone for Receiver<T> {
+    fn clone(&self) -> Self {
+        Self{chan: self.chan.clone()}
+    }
 }
 
 impl<T> From<Arc<Channel<T>>> for Receiver<T> {
