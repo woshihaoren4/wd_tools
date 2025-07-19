@@ -9,34 +9,34 @@ use std::sync::atomic::{AtomicIsize, AtomicUsize, Ordering};
 use std::task::{Context, Poll};
 use std::time::Duration;
 use pin_project_lite::pin_project;
-use crate::{AsBytes, Sha1};
+use crate::{AsBytes};
 
 #[derive(Debug,Default,Clone)]
 pub struct Ctx {
     status: Arc<AtomicUsize>,
     subtask: Arc<AtomicIsize>,
-    map:Arc<RwLock<HashMap<String,Box<dyn Any+Send+Sync>>>>
+    map:Arc<RwLock<HashMap<Vec<u8>,Box<dyn Any+Send+Sync>>>>
 }
 impl Ctx {
     #[allow(dead_code)]
     pub fn insert<K:AsBytes,V:Any+ Send+Sync>(&self,key:K,val:V)->Option<Box<dyn Any+Send+Sync>>{
-        let key = key.as_byte().sha1();
+        let key = key.as_byte().to_vec();
         self.ref_inner_mut(|map|{
             map.insert(key,Box::new(val))
         })
     }
     #[allow(dead_code)]
     pub fn remove<K:AsBytes,V:Any>(&self,key:K)->Option<V>{
-        let key = key.as_byte().sha1();
+        let key = key.as_byte();
         self.ref_inner_mut(|map|{
-            if let Some(s) = map.get(key.as_str()) {
+            if let Some(s) = map.get(key) {
                 if s.downcast_ref::<V>().is_none() {
                     return None
                 }
             }else{
                 return None
             }
-            if let Some(s) = map.remove(key.as_str()){
+            if let Some(s) = map.remove(key){
                 let val = Box::into_raw(s) as *mut V;
                 unsafe {
                     let a = Box::from_raw(val);
@@ -48,9 +48,9 @@ impl Ctx {
     }
     #[allow(dead_code)]
     pub fn ref_handle<K:AsBytes,V:Any,O>(&self,key:K,handle:impl FnOnce(Option<&V>)->O)->O{
-        let key = key.as_byte().sha1();
+        let key = key.as_byte();
         self.ref_inner(|map|{
-            let opt = map.get(key.as_str());
+            let opt = map.get(key);
             let res = match opt {
                 None => None,
                 Some(a) => {
@@ -62,9 +62,9 @@ impl Ctx {
     }
     #[allow(dead_code)]
     pub fn ref_handle_mut<K:AsBytes,V:Any,O>(&self,key:K,handle:impl FnOnce(Option<&mut V>)->O)->O{
-        let key = key.as_byte().sha1();
+        let key = key.as_byte();
         self.ref_inner_mut(|map|{
-            let opt = map.get_mut(key.as_str());
+            let opt = map.get_mut(key);
             let res = match opt {
                 None => None,
                 Some(a) => {
@@ -75,12 +75,12 @@ impl Ctx {
         })
     }
     #[allow(dead_code)]
-    pub fn ref_inner<O>(&self, handle: impl FnOnce(&HashMap<String, Box<dyn Any+ Send+Sync>>) -> O) ->O{
+    pub fn ref_inner<O>(&self, handle: impl FnOnce(&HashMap<Vec<u8>, Box<dyn Any+ Send+Sync>>) -> O) ->O{
         let reader = self.map.read().unwrap();
         handle(reader.deref())
     }
     #[allow(dead_code)]
-    pub fn ref_inner_mut<O>(&self, handle: impl FnOnce(&mut HashMap<String, Box<dyn Any+ Send+Sync>>) -> O) ->O{
+    pub fn ref_inner_mut<O>(&self, handle: impl FnOnce(&mut HashMap<Vec<u8>, Box<dyn Any+ Send+Sync>>) -> O) ->O{
         let mut write = self.map.write().unwrap();
         handle(write.deref_mut())
     }
