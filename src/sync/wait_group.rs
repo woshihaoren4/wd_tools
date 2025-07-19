@@ -1,10 +1,10 @@
+use pin_project_lite::pin_project;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
-use pin_project_lite::pin_project;
 use tokio::time::Sleep;
 
 #[derive(Debug, Default)]
@@ -60,9 +60,9 @@ impl WaitGroup {
         });
     }
     pub fn wait(&self) -> WaitGroupFut {
-        WaitGroupFut{
+        WaitGroupFut {
             sleep: tokio::time::sleep(Duration::from_millis(1)),
-            count:self.count.clone()
+            count: self.count.clone(),
         }
     }
 }
@@ -83,7 +83,7 @@ impl Future for WaitGroupFut {
         let ok = sleep.as_mut().poll(cx).is_ready();
         if ok {
             if this.count.load(Ordering::Relaxed) <= 0 {
-                return Poll::Ready(())
+                return Poll::Ready(());
             }
             sleep.set(tokio::time::sleep(Duration::from_millis(1)));
             cx.waker().wake_by_ref();

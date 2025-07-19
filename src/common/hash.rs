@@ -1,7 +1,7 @@
 use crypto::digest::Digest;
 use crypto::md5::Md5;
-use std::iter::repeat;
 use crypto::sha1::Sha1 as ShaOne;
+use std::iter::repeat;
 
 pub trait MD5 {
     fn md5(self) -> Vec<u8>;
@@ -17,8 +17,8 @@ impl<T: AsRef<[u8]>> MD5 for T {
     }
 }
 
-pub trait Sha1{
-    fn sha1(self)->String;
+pub trait Sha1 {
+    fn sha1(self) -> String;
 }
 
 impl<T: AsRef<[u8]>> Sha1 for T {
@@ -28,4 +28,3 @@ impl<T: AsRef<[u8]>> Sha1 for T {
         s1.result_str()
     }
 }
-

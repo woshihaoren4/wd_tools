@@ -1,7 +1,10 @@
 use std::fmt::{Debug, Display, Formatter};
 
-pub trait ChannelError:Display {
-    fn into_err<T>(self)->ChannelResult<T,Self> where Self: Sized{
+pub trait ChannelError: Display {
+    fn into_err<T>(self) -> ChannelResult<T, Self>
+    where
+        Self: Sized,
+    {
         ChannelResult::Err(self)
     }
 }
@@ -10,14 +13,14 @@ pub trait ChannelError:Display {
 pub enum SendError<T> {
     CLOSED(T),
     FULL(T),
-    UNKNOWN(T,String),
+    UNKNOWN(T, String),
 }
-impl<T> Display for SendError<T>   {
+impl<T> Display for SendError<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            SendError::CLOSED(_) =>  write!(f, "ChannelClose"),
-            SendError::FULL(_) =>  write!(f, "ChannelFull"),
-            SendError::UNKNOWN(_,e) =>  write!(f, "ChannelUnknown error:{e}"),
+            SendError::CLOSED(_) => write!(f, "ChannelClose"),
+            SendError::FULL(_) => write!(f, "ChannelFull"),
+            SendError::UNKNOWN(_, e) => write!(f, "ChannelUnknown error:{e}"),
         }
     }
 }
@@ -39,9 +42,9 @@ pub enum RecvError {
 impl Display for RecvError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RecvError::CLOSED =>  write!(f, "ChannelClose"),
-            RecvError::EMPTY =>  write!(f, "ChannelEmpty"),
-            RecvError::UNKNOWN(e) =>  write!(f, "ChannelUnknown error:{e}"),
+            RecvError::CLOSED => write!(f, "ChannelClose"),
+            RecvError::EMPTY => write!(f, "ChannelEmpty"),
+            RecvError::UNKNOWN(e) => write!(f, "ChannelUnknown error:{e}"),
         }
     }
 }
@@ -54,7 +57,7 @@ impl Debug for RecvError {
 }
 impl std::error::Error for RecvError {}
 
-pub type ChannelResult<T,E> = Result<T,E>;
+pub type ChannelResult<T, E> = Result<T, E>;
 
 // impl<T> Display for ChannelError<T> {
 //     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -68,7 +71,7 @@ pub type ChannelResult<T,E> = Result<T,E>;
 // }
 
 // pub type ChannelResult<T, Val> = Result<T, ChannelError<Val>>;
-// 
+//
 // pub(crate) fn empty_result<T>() -> ChannelResult<T, ()> {
 //     Err(ChannelError::EMPTY)
 // }

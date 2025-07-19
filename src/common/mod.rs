@@ -6,12 +6,12 @@ mod base64;
 #[cfg(feature = "b64")]
 pub use self::base64::{Base64StdDecode, Base64StdEncode, Base64URLDecode, Base64URLEncode};
 
-#[cfg(any(feature = "md5",feature = "sha1"))]
+#[cfg(any(feature = "md5", feature = "sha1"))]
 mod hash;
-#[cfg(feature = "md5")]
-pub use hash::MD5;
 #[cfg(feature = "sha1")]
 pub use hash::Sha1;
+#[cfg(feature = "md5")]
+pub use hash::MD5;
 
 #[cfg(feature = "point-free")]
 mod pf;

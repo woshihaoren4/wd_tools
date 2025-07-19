@@ -1,10 +1,10 @@
 mod channel;
-mod error;
 mod channel_split;
+mod error;
 
 pub use channel::*;
-pub use error::*;
 pub use channel_split::*;
+pub use error::*;
 
 #[cfg(test)]
 mod test {
@@ -26,12 +26,12 @@ mod test {
         assert_eq!(res, Err(RecvError::EMPTY), "first try recv failed");
     }
 
-    #[tokio::test(flavor ="multi_thread", worker_threads = 4)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_channel_wait() {
         let wg = WaitGroup::default();
         let (sender, receiver) = Channel::<usize>::new(100);
         let start_time = std::time::Instant::now();
-        for i in 0..100 {
+        for _i in 0..100 {
             let sender = sender.clone();
             wg.defer(|| async move {
                 for i in 0..10_0000 {
@@ -41,7 +41,7 @@ mod test {
             });
         }
         // sender.close();
-        for i in 0..100 {
+        for _i in 0..100 {
             let receiver = receiver.clone();
             wg.defer(|| async move {
                 for i in 0..10_0000 {

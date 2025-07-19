@@ -35,11 +35,11 @@ pub use net::*;
 #[cfg(test)]
 // #[cfg(feature = "full")]
 mod test {
-    use super::*;
     use super::common::EncodeHex;
-    use std::sync::Arc;
-    use crate::coll::ByteMap;
     use super::common::SimpleRegexMatch;
+    use super::*;
+    use crate::coll::ByteMap;
+    use std::sync::Arc;
 
     #[test]
     fn test_hex() {
@@ -104,10 +104,10 @@ mod test {
     #[test]
     fn test_ptr() {
         let src = 129u8;
-        let des:i8 = ptr::unsafe_must_take(src);
+        let des: i8 = ptr::unsafe_must_take(src);
         assert_eq!(des, -127, "force_arc_to_var failed");
         let src = 129u8;
-        let des:i8 = ptr::unsafe_must_downcast::<_, i8>(src);
+        let des: i8 = ptr::unsafe_must_downcast::<_, i8>(src);
         assert_eq!(des, -127, "force_box_to_var failed");
     }
 
@@ -169,27 +169,27 @@ mod test {
     // }
 
     #[test]
-    fn byte_map_chinese(){
+    fn byte_map_chinese() {
         let mut map = ByteMap::new();
-        map.insert(&("你好".chars().collect::<Vec<char>>()),"你好");
-        map.insert(&("hello".chars().collect::<Vec<char>>()),"hello");
-        map.insert(&("123".chars().collect::<Vec<char>>()),"123");
+        map.insert(&("你好".chars().collect::<Vec<char>>()), "你好");
+        map.insert(&("hello".chars().collect::<Vec<char>>()), "hello");
+        map.insert(&("123".chars().collect::<Vec<char>>()), "123");
 
         let target = "飞流之下，123，hello，你好".chars().collect::<Vec<char>>();
 
-        for i in 0..target.len(){
-            if let Some(s) = map.match_first(&target[i..]){
-                println!("match ok ---> {}",s);
+        for i in 0..target.len() {
+            if let Some(s) = map.match_first(&target[i..]) {
+                println!("match ok ---> {}", s);
             }
         }
     }
 
     #[test]
-    fn regex(){
+    fn regex() {
         let re = r#"\[(.*?)\]"#;
         let s = r#"a[b][c]d[1[2]3]"#;
 
         let vec = s.regex(re).unwrap();
-        println!("simple regex match : {:?}",vec);
+        println!("simple regex match : {:?}", vec);
     }
 }

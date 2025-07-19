@@ -5,18 +5,18 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-
 #[derive(Debug)]
 pub struct ParallelPool {
     parallel_max: usize,
     workers: Arc<AtomicUsize>,
 }
 
-
-
 impl Clone for ParallelPool {
     fn clone(&self) -> Self {
-        ParallelPool{parallel_max:self.parallel_max.clone(),workers:self.workers.clone()}
+        ParallelPool {
+            parallel_max: self.parallel_max.clone(),
+            workers: self.workers.clone(),
+        }
     }
 }
 impl ParallelPool {
@@ -70,36 +70,37 @@ impl ParallelPool {
     }
 }
 
-impl Future for ParallelPool  {
+impl Future for ParallelPool {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.workers.load(Ordering::Relaxed) == 0 {
-            return Poll::Ready(())
+            return Poll::Ready(());
         }
         let waker = cx.waker().clone();
-        tokio::spawn(async move{
+        tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(10)).await;
             waker.wake_by_ref();
         });
-        return Poll::Pending
+        return Poll::Pending;
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::time::Duration;
     use crate::pool::coroutine::ParallelPool;
+    use std::time::Duration;
     //cargo test --color=always --package wd_tools --lib pool::coroutine::test::test_parallel_pool --no-fail-fast --  --exact  unstable-options --show-output --nocapture
     #[tokio::test]
     async fn test_parallel_pool() {
         let pp = ParallelPool::new(3);
         for i in 0..10 {
-            pp.launch(async move{
-               println!("task start --> {i}");
+            pp.launch(async move {
+                println!("task start --> {i}");
                 tokio::time::sleep(Duration::from_secs(1)).await;
-               println!("task end   --> {i}");
-            }).await;
+                println!("task end   --> {i}");
+            })
+            .await;
         }
         pp.await;
     }
