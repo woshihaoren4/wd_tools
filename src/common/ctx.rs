@@ -98,6 +98,10 @@ impl Ctx {
         self.status.fetch_add(1,Ordering::Relaxed);
     }
     #[allow(dead_code)]
+    pub fn is_stop(&self) ->bool {
+        self.status.load(Ordering::Relaxed) > 0
+    }
+    #[allow(dead_code)]
     pub fn wait_stop_status(&self, timeout:Option<Duration>) ->CtxFut{
         let forever = timeout.is_none();
         let timeout = match timeout {
