@@ -38,6 +38,13 @@ pub fn type_id<T: 'static>() -> u64 {
     hasher.finish()
 }
 
+#[allow(dead_code)]
+pub fn get_type_u128<T: 'static>() -> u128 {
+    let type_id = TypeId::of::<T>();
+    let id_u128: u128 = unsafe { std::mem::transmute::<TypeId, u128>(type_id) };
+    id_u128
+}
+
 #[cfg(test)]
 mod test {
     use crate::ptr::{unsafe_must_downcast, unsafe_must_take};
