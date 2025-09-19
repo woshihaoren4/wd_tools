@@ -9,3 +9,6 @@ pub use snowflake::snowflake_id;
 
 #[cfg(feature = "uid")]
 pub mod uuid;
+
+#[cfg(feature = "random")]
+pub mod rand;
