@@ -5,17 +5,22 @@ use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
+use tokio::sync::Notify;
 use tokio::time::Sleep;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct WaitGroup {
     count: Arc<AtomicIsize>,
+    notify: Arc<Notify>,
+    wait_fut: Option<Box<dyn Future<Output=()> + Send + 'static>>,
 }
 
 impl Clone for WaitGroup {
     fn clone(&self) -> Self {
         Self {
             count: self.count.clone(),
+            notify: self.notify.clone(),
+            wait_fut: None,
         }
     }
 }
@@ -24,13 +29,16 @@ impl WaitGroup {
     pub fn new(count: isize) -> Self {
         Self {
             count: Arc::new(AtomicIsize::new(count)),
+            notify: Arc::new(Notify::new()),
+            wait_fut: None,
         }
     }
     pub fn add(&self, count: isize) {
-        self.count.fetch_add(count, Ordering::Relaxed);
+        self.count.fetch_add(count, Ordering::Release);
     }
     pub fn done(&self) {
-        self.count.fetch_sub(1, Ordering::Relaxed);
+        self.count.fetch_sub(1, Ordering::Release);
+        self.notify.notify_waiters();
     }
     pub fn defer<FN, FUT>(&self, function: FN)
     where
@@ -59,36 +67,13 @@ impl WaitGroup {
             wg.done();
         });
     }
-    pub fn wait(&self) -> WaitGroupFut {
-        WaitGroupFut {
-            sleep: tokio::time::sleep(Duration::from_millis(1)),
-            count: self.count.clone(),
-        }
-    }
-}
-pin_project! {
-    pub struct WaitGroupFut {
-        #[pin]
-        sleep: Sleep,
-        count: Arc<AtomicIsize>,
-    }
-}
-
-impl Future for WaitGroupFut {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        let mut sleep = this.sleep;
-        let ok = sleep.as_mut().poll(cx).is_ready();
-        if ok {
-            if this.count.load(Ordering::Relaxed) <= 0 {
-                return Poll::Ready(());
+    pub async fn wait(&self) {
+        loop {
+            if self.count.load(Ordering::Acquire) <= 0 {
+                return
             }
-            sleep.set(tokio::time::sleep(Duration::from_millis(1)));
-            cx.waker().wake_by_ref();
+            self.notify.notified().await;
         }
-        Poll::Pending
     }
 }
 
