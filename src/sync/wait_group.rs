@@ -24,6 +24,8 @@ impl Clone for WaitGroup {
         }
     }
 }
+unsafe impl Sync for WaitGroup {}
+unsafe impl Send for WaitGroup {}
 
 impl WaitGroup {
     pub fn new(count: isize) -> Self {

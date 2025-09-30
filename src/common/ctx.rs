@@ -30,6 +30,9 @@ impl Clone for Ctx {
         }
     }
 }
+unsafe impl Send for Ctx {}
+unsafe impl Sync for Ctx {}
+
 impl Ctx {
     #[allow(dead_code)]
     pub fn insert<K: AsBytes, V: Any + Send + Sync>(
