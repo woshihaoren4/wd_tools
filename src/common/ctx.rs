@@ -10,13 +10,25 @@ use std::sync::atomic::{AtomicIsize, AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 use std::time::Duration;
+use tokio::sync::Notify;
 use tokio::time::Sleep;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default)]
 pub struct Ctx {
     status: Arc<AtomicUsize>,
     subtask: Arc<AtomicIsize>,
     map: Arc<RwLock<HashMap<Vec<u8>, Box<dyn Any + Send + Sync>>>>,
+    notify: Arc<Notify>,
+}
+impl Clone for Ctx {
+    fn clone(&self) -> Self {
+        Self{
+            status: self.status.clone(),
+            subtask: self.subtask.clone(),
+            map: self.map.clone(),
+            notify: self.notify.clone(),
+        }
+    }
 }
 impl Ctx {
     #[allow(dead_code)]
@@ -98,34 +110,42 @@ impl Ctx {
         handle(write.deref_mut())
     }
     #[allow(dead_code)]
-    pub fn add_sub_task(&self, count: isize) {
-        self.subtask.fetch_add(count, Ordering::Relaxed);
+    pub fn add_task(&self, count: isize) {
+        self.subtask.fetch_add(count, Ordering::Release);
     }
     #[allow(dead_code)]
-    pub fn done_sub_task(&self) {
-        self.subtask.fetch_sub(1, Ordering::Relaxed);
+    pub fn done_task(&self) {
+        self.subtask.fetch_sub(1, Ordering::Release);
+        self.notify.notify_waiters();
     }
     // stop all task
     #[allow(dead_code)]
     pub fn stop(&self) {
-        self.status.fetch_add(1, Ordering::Relaxed);
+        self.status.fetch_add(1, Ordering::Release);
+        self.notify.notify_waiters();
     }
     #[allow(dead_code)]
     pub fn is_stop(&self) -> bool {
-        self.status.load(Ordering::Relaxed) > 0
+        self.status.load(Ordering::Acquire) > 0
     }
     #[allow(dead_code)]
-    pub fn wait_stop_status(&self) -> CtxFut {
-        let status = self.status.clone();
-        let subtask = self.subtask.clone();
-        CtxFut::new(status, subtask,false)
+    pub async fn wait_stop_status(&self) {
+        loop {
+            if self.is_stop() {
+                return 
+            }
+            self.notify.notified().await;
+        }
     }
     // if set timeout, and result is timeout, The subtask does not continue
     #[allow(dead_code)]
-    pub fn wait_all_subtask_over(&self) -> CtxFut {
-        let status = self.status.clone();
-        let subtask = self.subtask.clone();
-        CtxFut::new(status,subtask,true)
+    pub async fn wait_all_subtask_over(&self) {
+        loop {
+            if self.subtask.load(Ordering::Acquire) <= 0 {
+                return
+            }
+            self.notify.notified().await;
+        }
     }
     #[allow(dead_code)]
     pub async fn exec_future<Fut, Out>(
@@ -136,7 +156,7 @@ impl Ctx {
     where
         Fut: Future<Output = anyhow::Result<Out>> + Send + 'static,
     {
-        self.add_sub_task(1);
+        self.add_task(1);
         let res = if let Some(d) = timeout { 
             match tokio::time::timeout(d,future).await{
                 Ok(o) => o,
@@ -145,7 +165,7 @@ impl Ctx {
         }else{
             future.await
         };
-        self.done_sub_task();
+        self.done_task();
         return res;
     }
     #[allow(dead_code)]
@@ -168,70 +188,6 @@ impl Ctx {
         F: FnOnce(Ctx) -> Fut,
     {
         self.call_timeout(lambda, None).await
-    }
-}
-
-pin_project! {
-pub struct CtxFut{
-    status: Arc<AtomicUsize>,
-    subtask: Arc<AtomicIsize>,
-
-    sleep:Option<Pin<Box<Sleep>>>,
-    
-    index : u64,
-        
-    check_subtask : bool,
-    }
-}
-
-impl CtxFut {
-    pub fn new(status: Arc<AtomicUsize>, subtask: Arc<AtomicIsize>,check_subtask: bool) -> Self {
-        Self{status, subtask, sleep: None, index: 1, check_subtask}
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum CtxFutResult {
-    Over,
-    Timeout,
-}
-impl Display for CtxFutResult {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl std::error::Error for CtxFutResult {}
-impl Future for CtxFut {
-    type Output = CtxFutResult;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut pro = self.project();
-        if let Some(ref mut i) = pro.sleep {
-            if i.as_mut().poll(cx).is_pending() {
-                return Poll::Pending;
-            }
-        }
-        
-        if *pro.check_subtask {
-            if pro.subtask.load(Ordering::Relaxed) <= 0 {
-                pro.status.fetch_add(1, Ordering::Relaxed);
-                return Poll::Ready(CtxFutResult::Over);
-            }
-        } else {
-            if pro.status.load(Ordering::Relaxed) > 0 {
-                return Poll::Ready(CtxFutResult::Over);
-            }
-        }
-
-            let mut t = pro.index.deref_mut().add(1);
-            if t > 10 {
-                t = 10
-            }
-            let sleep = Box::pin(tokio::time::sleep(Duration::from_millis(t)));
-            let _ = std::mem::replace(pro.sleep.deref_mut(), Some(sleep));
-
-        cx.waker().wake_by_ref();
-        Poll::Pending
     }
 }
 
