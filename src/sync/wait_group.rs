@@ -1,18 +1,13 @@
-use pin_project_lite::pin_project;
 use std::future::Future;
-use std::pin::Pin;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::Duration;
 use tokio::sync::Notify;
-use tokio::time::Sleep;
 
 #[derive(Default)]
 pub struct WaitGroup {
     count: Arc<AtomicIsize>,
     notify: Arc<Notify>,
-    wait_fut: Option<Box<dyn Future<Output=()> + Send + 'static>>,
+    // wait_fut: Option<Box<dyn Future<Output=()> + Send + 'static>>,
 }
 
 impl Clone for WaitGroup {
@@ -20,7 +15,7 @@ impl Clone for WaitGroup {
         Self {
             count: self.count.clone(),
             notify: self.notify.clone(),
-            wait_fut: None,
+            // wait_fut: None,
         }
     }
 }
@@ -32,7 +27,7 @@ impl WaitGroup {
         Self {
             count: Arc::new(AtomicIsize::new(count)),
             notify: Arc::new(Notify::new()),
-            wait_fut: None,
+            // wait_fut: None,
         }
     }
     pub fn add(&self, count: isize) {
@@ -72,7 +67,7 @@ impl WaitGroup {
     pub async fn wait(&self) {
         loop {
             if self.count.load(Ordering::Acquire) <= 0 {
-                return
+                return;
             }
             self.notify.notified().await;
         }

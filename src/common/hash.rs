@@ -17,6 +17,7 @@ impl<T: AsRef<[u8]>> MD5 for T {
     }
 }
 
+#[allow(dead_code)]
 pub trait Sha1 {
     fn sha1(self) -> String;
 }

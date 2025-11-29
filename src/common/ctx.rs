@@ -1,17 +1,12 @@
 use crate::AsBytes;
-use pin_project_lite::pin_project;
 use std::any::Any;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::future::Future;
-use std::ops::{Add, Deref, DerefMut};
-use std::pin::Pin;
+use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicIsize, AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
-use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::sync::Notify;
-use tokio::time::Sleep;
 
 #[derive(Default)]
 pub struct Ctx {
@@ -22,7 +17,7 @@ pub struct Ctx {
 }
 impl Clone for Ctx {
     fn clone(&self) -> Self {
-        Self{
+        Self {
             status: self.status.clone(),
             subtask: self.subtask.clone(),
             map: self.map.clone(),
@@ -135,7 +130,7 @@ impl Ctx {
     pub async fn wait_stop_status(&self) {
         loop {
             if self.is_stop() {
-                return 
+                return;
             }
             self.notify.notified().await;
         }
@@ -145,7 +140,7 @@ impl Ctx {
     pub async fn wait_all_subtask_over(&self) {
         loop {
             if self.subtask.load(Ordering::Acquire) <= 0 {
-                return
+                return;
             }
             self.notify.notified().await;
         }
@@ -160,12 +155,12 @@ impl Ctx {
         Fut: Future<Output = anyhow::Result<Out>> + Send + 'static,
     {
         self.add_task(1);
-        let res = if let Some(d) = timeout { 
-            match tokio::time::timeout(d,future).await{
+        let res = if let Some(d) = timeout {
+            match tokio::time::timeout(d, future).await {
                 Ok(o) => o,
-                Err(e) => Err(anyhow::Error::new(e))
+                Err(e) => Err(anyhow::Error::new(e)),
             }
-        }else{
+        } else {
             future.await
         };
         self.done_task();
@@ -182,7 +177,7 @@ impl Ctx {
         F: FnOnce(Ctx) -> Fut,
     {
         let future = lambda(self.clone());
-        self.exec_future(future,timeout).await
+        self.exec_future(future, timeout).await
     }
     #[allow(dead_code)]
     pub async fn call<F, Fut, Out>(self, lambda: F) -> anyhow::Result<Out>
@@ -196,7 +191,7 @@ impl Ctx {
 
 #[cfg(test)]
 mod test {
-    use crate::common::ctx::{Ctx};
+    use crate::common::ctx::Ctx;
     use std::time::Duration;
 
     #[tokio::test]
@@ -218,7 +213,7 @@ mod test {
         let ctx = Ctx::default();
         let c = ctx.clone();
         tokio::spawn(async move {
-            match tokio::time::timeout(Duration::from_secs(3),c.wait_stop_status()).await{
+            match tokio::time::timeout(Duration::from_secs(3), c.wait_stop_status()).await {
                 Ok(_) => {
                     println!("over and quit");
                 }

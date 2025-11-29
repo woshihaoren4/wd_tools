@@ -61,6 +61,11 @@ impl AsBytes for &str {
         self.as_bytes()
     }
 }
+impl AsBytes for String {
+    fn as_byte(&self) -> &[u8] {
+        self.as_str().as_bytes()
+    }
+}
 impl AsBytes for &[char] {
     fn as_byte(&self) -> &[u8] {
         unsafe { std::mem::transmute(*self) }
@@ -80,4 +85,12 @@ where
     fn as_byte(&self) -> &[u8] {
         (*self).as_byte()
     }
+}
+
+pub fn bytes_to_usize(bytes: &[u8]) -> usize {
+    bytes.iter().fold(5381usize, |acc, &b| {
+        // (acc << 5) + acc + byte 相当于 acc * 33 + byte
+        // 使用 wrapping_add 防止溢出 panic
+        (acc.wrapping_shl(5)).wrapping_add(acc) ^ (b as usize)
+    })
 }
