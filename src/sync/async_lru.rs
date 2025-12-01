@@ -44,6 +44,13 @@ impl<V> AsyncLru<V> {
         handle(opt)
     }
 
+    pub fn get_mut<K: AsBytes, Out>(&self, k: K, handle: impl FnOnce(Option<&mut V>) -> Out) -> Out {
+        let gid = self.get_group_id(&k);
+        let mut reader = self.cache[gid].lock().unwrap();
+        let opt = reader.deref_mut().get_mut(k);
+        handle(opt)
+    }
+
     fn get_group_id<K: AsBytes>(&self, k: K) -> usize {
         bytes_to_usize(k.as_byte()) % self.group
     }
@@ -88,7 +95,7 @@ mod test {
     fn test_multithreaded_lru() {
         // 1. 创建一个分片 LRU，容量小一点以便测试淘汰
         // 4个分片，每个分片容量 10，总容量 40
-        let lru = AsyncLru::<i32>::new(4, 10);
+        let lru = AsyncLru::<i32>::new(4, 20);
 
         let mut handles = vec![];
 

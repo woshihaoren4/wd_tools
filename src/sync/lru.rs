@@ -126,6 +126,16 @@ impl<V> LruCache<V> {
         self.link.update(v.node);
         Some(&v.value)
     }
+    pub fn get_mut<K: AsBytes>(&mut self, key: K) -> Option<&mut V> {
+        let key = key.as_byte();
+        let v = if let Some(v) = self.map.get_mut(key) {
+            v
+        } else {
+            return None;
+        };
+        self.link.update(v.node);
+        Some(&mut v.value)
+    }
     fn check_cap(&mut self) {
         if self.map.len() <= self.cap {
             return;
