@@ -1,12 +1,9 @@
-#[derive(Default)]
-struct TestStruct {
-    age: i32,
-}
 
 #[macro_export]
 macro_rules! share {
     ($obj:tt,$gf:tt) => {
         impl $obj {
+            #[allow(dead_code)]
             pub fn lock_ref_mut<T, Out>(handle: T) -> Out
             where
                 T: FnOnce(&mut $obj) -> Out,
@@ -16,6 +13,7 @@ macro_rules! share {
                 let target = std::ops::DerefMut::deref_mut(&mut binding);
                 handle(target)
             }
+            #[allow(dead_code)]
             pub fn unsafe_mut_ptr<T, Out>(handle: T) -> Out
             where
                 T: FnOnce(&mut $obj) -> Out,
@@ -26,6 +24,7 @@ macro_rules! share {
                     return handle(&mut *target);
                 };
             }
+            #[allow(dead_code)]
             pub async fn async_ref<T, Out>(handle: T) -> Out
             where
                 T: FnOnce(&mut $obj) -> Out,
@@ -34,6 +33,7 @@ macro_rules! share {
                 let mut target = this.lock().await;
                 handle(std::ops::DerefMut::deref_mut(&mut target))
             }
+            #[allow(dead_code)]
             pub async fn async_ref_handle<T, F, Out>(handle: T) -> Out
             where
                 T: FnOnce(&mut $obj) -> F,
@@ -47,30 +47,49 @@ macro_rules! share {
     };
 }
 
-#[cfg(test)]
-mod test {
-    use crate::sync::async_mutex::AsyncMutex;
-    use crate::sync::global::TestStruct;
-    use crate::sync::WaitGroup;
+#[macro_export]
+macro_rules! global {
+    ($type_name:ident,$init_func:block) => {
+         paste::paste! {
+             #[allow(non_snake_case,non_upper_case_globals)]
+             static mut [<__ $type_name _STRUCT>]: Option<AsyncMutex<$type_name>> = None;
+             #[allow(non_snake_case,non_upper_case_globals)]
+             static mut [<__ $type_name _ONCE>]: std::sync::Once = std::sync::Once::new();
 
-    static mut __TEST_STRUCT: Option<AsyncMutex<TestStruct>> = None;
-    static mut __TEST_ONCE: std::sync::Once = std::sync::Once::new();
-
-    fn get_test_struct() -> &'static AsyncMutex<TestStruct> {
-        unsafe {
-            __TEST_ONCE.call_once(|| {
-                __TEST_STRUCT = Some(AsyncMutex::new(std::default::Default::default()))
-            });
-            match __TEST_STRUCT {
-                Some(ref s) => s,
-                None => {
-                    panic!("__TEST_STRUCT init failed")
+             #[allow(non_snake_case)]
+             fn [<_get_ $type_name>]() -> &'static AsyncMutex<$type_name> {
+                unsafe {
+                #[allow(static_mut_refs)]
+                [<__ $type_name _ONCE>].call_once(|| {
+                    let t = $init_func;
+                    [<__ $type_name _STRUCT>] = Some(AsyncMutex::new(t))
+                });
+                match [<__ $type_name _STRUCT>] {
+                    Some(ref s) => s,
+                    None => {
+                    panic!("{} init failed", stringify!($type_name))
+                        }
+                    }
                 }
             }
-        }
+             share!($type_name, [<_get_ $type_name>]);
+         }
+    };
+}
+
+#[cfg(test)]
+mod test {
+    use crate::sync::WaitGroup;
+    use super::super::AsyncMutex;
+
+    #[derive(Default)]
+    struct TestStruct {
+        age: i32,
     }
 
-    share!(TestStruct, get_test_struct);
+    global!(TestStruct,{
+        TestStruct::default()
+    });
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_global() {
