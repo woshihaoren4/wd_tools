@@ -63,9 +63,9 @@ impl LruDoubleLink {
             self.head = node;
         }
     }
-    fn remove_last(&mut self) -> Vec<u8> {
+    fn remove_last(&mut self) -> Option<*mut LruNode> {
         if self.tail.is_null() {
-            return Vec::new();
+            return None;
         }
         let node = self.tail;
         unsafe {
@@ -76,15 +76,21 @@ impl LruDoubleLink {
                 self.tail = ptr::null_mut();
                 self.head = self.tail;
             }
-            let node = Box::from_raw(node);
-            return node.key;
+            return Some(node);
+            // let node = Box::from_raw(node);
+            // return node.key;
         }
     }
 }
 impl Drop for LruDoubleLink {
     fn drop(&mut self) {
         while !self.tail.is_null() {
-            let _ = self.remove_last();
+            if let Some(s) = self.remove_last(){
+                unsafe {
+                    let b = Box::from_raw(s);
+                    drop(b)
+                }
+            }
         }
     }
 }
@@ -104,17 +110,29 @@ impl<V> LruCache<V> {
     }
     pub fn put<K: AsBytes>(&mut self, key: K, value: V) -> Option<V> {
         let key = key.as_byte();
-        let (result, b) = if let Some(v) = self.map.get_mut(key) {
+        if let Some(v) = self.map.get_mut(key) {
             let old = mem::replace(&mut v.value, value);
-            (Some(old), v.node)
-        } else {
+            self.link.update(v.node);
+            return Some(old);
+        }
+        if self.map.len() < self.cap {
             let b = Box::into_raw(Box::new(LruNode::new(key.to_vec())));
             self.map.insert(key.to_vec(), Value::new(value, b));
-            (None, b)
-        };
-        self.link.update(b);
-        self.check_cap();
-        result
+            self.link.update(b);
+            return None;
+        }
+        unsafe {
+            if let Some(n) = self.link.remove_last() {
+                if let Some(mut n) = self.map.remove((*n).key.as_byte()) {
+                    (*n.node).key = key.to_vec();
+                    let old = mem::replace(&mut n.value, value);
+                    self.link.update(n.node);
+                    self.map.insert(key.to_vec(), n);
+                    return Some(old);
+                }
+            }
+            Some(value)
+        }
     }
     pub fn get<K: AsBytes>(&mut self, key: K) -> Option<&V> {
         let key = key.as_byte();
@@ -136,14 +154,14 @@ impl<V> LruCache<V> {
         self.link.update(v.node);
         Some(&mut v.value)
     }
-    fn check_cap(&mut self) {
-        if self.map.len() <= self.cap {
-            return;
-        }
-        let key = self.link.remove_last();
-        let opt = self.map.remove(&key);
-        drop(opt);
-    }
+    // fn check_cap(&mut self) {
+    //     if self.map.len() <= self.cap {
+    //         return;
+    //     }
+    //     let key = self.link.remove_last();
+    //     let opt = self.map.remove(&key);
+    //     drop(opt);
+    // }
 }
 
 unsafe impl Send for LruDoubleLink {}
