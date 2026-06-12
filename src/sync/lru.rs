@@ -85,7 +85,7 @@ impl LruDoubleLink {
 impl Drop for LruDoubleLink {
     fn drop(&mut self) {
         while !self.tail.is_null() {
-            if let Some(s) = self.remove_last(){
+            if let Some(s) = self.remove_last() {
                 unsafe {
                     let b = Box::from_raw(s);
                     drop(b)

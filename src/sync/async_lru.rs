@@ -44,7 +44,11 @@ impl<V> AsyncLru<V> {
         handle(opt)
     }
 
-    pub fn get_mut<K: AsBytes, Out>(&self, k: K, handle: impl FnOnce(Option<&mut V>) -> Out) -> Out {
+    pub fn get_mut<K: AsBytes, Out>(
+        &self,
+        k: K,
+        handle: impl FnOnce(Option<&mut V>) -> Out,
+    ) -> Out {
         let gid = self.get_group_id(&k);
         let mut reader = self.cache[gid].lock().unwrap();
         let opt = reader.deref_mut().get_mut(k);

@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! share {
     ($obj:tt,$gf:tt) => {
@@ -50,46 +49,44 @@ macro_rules! share {
 #[macro_export]
 macro_rules! global {
     ($type_name:ident,$init_func:block) => {
-         paste::paste! {
-             #[allow(non_snake_case,non_upper_case_globals)]
-             static mut [<__ $type_name _STRUCT>]: Option<AsyncMutex<$type_name>> = None;
-             #[allow(non_snake_case,non_upper_case_globals)]
-             static mut [<__ $type_name _ONCE>]: std::sync::Once = std::sync::Once::new();
+        paste::paste! {
+            #[allow(non_snake_case,non_upper_case_globals)]
+            static mut [<__ $type_name _STRUCT>]: Option<AsyncMutex<$type_name>> = None;
+            #[allow(non_snake_case,non_upper_case_globals)]
+            static mut [<__ $type_name _ONCE>]: std::sync::Once = std::sync::Once::new();
 
-             #[allow(non_snake_case)]
-             fn [<_get_ $type_name>]() -> &'static AsyncMutex<$type_name> {
-                unsafe {
-                #[allow(static_mut_refs)]
-                [<__ $type_name _ONCE>].call_once(|| {
-                    let t = $init_func;
-                    [<__ $type_name _STRUCT>] = Some(AsyncMutex::new(t))
-                });
-                match [<__ $type_name _STRUCT>] {
-                    Some(ref s) => s,
-                    None => {
-                    panic!("{} init failed", stringify!($type_name))
-                        }
-                    }
-                }
-            }
-             share!($type_name, [<_get_ $type_name>]);
-         }
+            #[allow(non_snake_case)]
+            fn [<_get_ $type_name>]() -> &'static AsyncMutex<$type_name> {
+               unsafe {
+               #[allow(static_mut_refs)]
+               [<__ $type_name _ONCE>].call_once(|| {
+                   let t = $init_func;
+                   [<__ $type_name _STRUCT>] = Some(AsyncMutex::new(t))
+               });
+               match [<__ $type_name _STRUCT>] {
+                   Some(ref s) => s,
+                   None => {
+                   panic!("{} init failed", stringify!($type_name))
+                       }
+                   }
+               }
+           }
+            share!($type_name, [<_get_ $type_name>]);
+        }
     };
 }
 
 #[cfg(test)]
 mod test {
-    use crate::sync::WaitGroup;
     use super::super::AsyncMutex;
+    use crate::sync::WaitGroup;
 
     #[derive(Default)]
     struct TestStruct {
         age: i32,
     }
 
-    global!(TestStruct,{
-        TestStruct::default()
-    });
+    global!(TestStruct, { TestStruct::default() });
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_global() {
